@@ -25,12 +25,8 @@ Thumbs.db
 logs/
 *.log
 
-# Temp files
-*.tmp
-*.temp
-
-# Your specific files that shouldn't be tracked
+# Temp/output files
 a.txt
 folders.txt
 tree_yapisi_sonucu_sade.txt
-15.01.2025_SMA_6871 plate_1.rdml
+*.rdml
