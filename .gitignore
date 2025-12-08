@@ -3,7 +3,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
 env/
 venv/
 .venv/
@@ -26,7 +25,6 @@ logs/
 *.log
 
 # Temp/output files
-a.txt
 folders.txt
 tree_yapisi_sonucu_sade.txt
 *.rdml
