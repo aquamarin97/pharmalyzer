@@ -1,0 +1,76 @@
+import string
+
+from app.willbedeleted.config.config import CSV_FILE_HEADERS
+from app.willbedeleted.managers.csv_manager import CSVManager
+
+
+class ConfigurateResultCSV:
+    """React ID'leri işleyen ve eksik olanları tamamlayan bir sınıf."""
+
+    def __init__(self, checkbox_status):
+
+        self.df = CSVManager.get_csv_df()
+        self.checkbox_status = checkbox_status
+
+    def process(self):
+        """Tüm işlemleri sırayla yapar."""
+
+        self.add_hasta_no()
+        self.add_nihai_sonuc()  # Nihai Sonuç sütununu ekle
+        self.sort_by_hasta_no()  # Hasta No'ya göre sıralama
+        self.reorder_columns()  # Kolon sırasını düzenle
+        file_path = CSVManager.get_csv_file_path()
+        self.df.to_csv(file_path, index=False)
+
+        CSVManager.update_csv_df()
+
+    def add_hasta_no(self):
+        """Hasta No sütununu ekler."""
+        # Tüm Kuyu No listesini oluştur
+        kuyu_no_list = self.generate_kuyu_no(96)
+
+        # Hasta No için bir harita oluştur (kolon öncelikli sıralama)
+        hasta_no_map = {kuyu: idx + 1 for idx, kuyu in enumerate(kuyu_no_list)}
+
+        # Hasta No sütununu ekle
+        self.df["Hasta No"] = self.df["Kuyu No"].map(hasta_no_map)
+
+    def generate_kuyu_no(self, num_rows):
+        """Kuyu No sütunu için değerler oluşturur."""
+        kuyu_no_list = []
+        letters = string.ascii_uppercase[:8]  # A'dan H'ye kadar
+        for number in range(1, 13):  # 1'den 12'ye kadar kolonlar
+            for letter in letters:  # A'dan H'ye kadar satırlar
+                kuyu_no_list.append(
+                    f"{letter}{number:02}"
+                )  # Sayıyı 2 basamaklı hale getir
+                if len(kuyu_no_list) >= num_rows:
+                    return kuyu_no_list
+        return kuyu_no_list[:num_rows]
+
+    def add_nihai_sonuc(self):
+        """'Nihai Sonuç' sütununu ekler ve 'Yazılım Hasta Sonucu' değerlerini kopyalar."""
+        if self.checkbox_status == True:
+            if "Yazılım Hasta Sonucu" in self.df.columns:
+                self.df["Nihai Sonuç"] = self.df["Yazılım Hasta Sonucu"]
+            else:
+                raise ValueError("'Yazılım Hasta Sonucu' sütunu mevcut değil.")
+        else:
+            if "Referans Hasta Sonucu" in self.df.columns:
+                self.df["Nihai Sonuç"] = self.df["Referans Hasta Sonucu"]
+            else:
+                raise ValueError("'Referans Hasta Sonucu' sütunu mevcut değil.")
+
+    def reorder_columns(self):
+        """Kolon sırasını düzenler."""
+        desired_order = CSV_FILE_HEADERS
+        # Sadece mevcut kolonları al
+        columns_to_include = [col for col in desired_order if col in self.df.columns]
+        self.df = self.df[columns_to_include]
+
+    def sort_by_hasta_no(self):
+        """Hasta No sütununa göre sıralama yapar."""
+        if "Hasta No" in self.df.columns:
+            self.df = self.df.sort_values(by="Hasta No").reset_index(drop=True)
+        else:
+            raise ValueError("Hasta No sütunu mevcut değil.")

@@ -1,0 +1,1 @@
+from .ui import ensure_license_or_exit

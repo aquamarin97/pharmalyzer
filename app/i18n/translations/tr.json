@@ -1,0 +1,46 @@
+{
+    "meta": {
+        "language": "Türkçe",
+        "code": "tr",
+        "translator": "Mustafa Necati Haşimoğlu",
+        "last_update": "2025-12-07"
+    },
+    "app": {
+        "window_title": "PharmaLyser SMA",
+        "name": "PharmaLyser SMA",
+        "brand": "PharmaLine"
+    },
+    "buttons": {
+        "analyze": "Analiz Et",
+        "clear": "Temizle",
+        "import": "İçe Aktar",
+        "export": "Dışa Aktar"
+    },
+    "errors": {
+        "title": "Hata",
+        "unexpected": "Beklenmeyen bir hata oluştu.",
+        "unexpected_with_type": "Beklenmeyen bir hata oluştu:\n{type}: {msg}",
+        "license": {
+            "title": "Lisans Hatası",
+            "missing": "Lisans dosyası bulunamadı. Lütfen lisansı yükleyin.",
+            "invalid_saved": "Kayıtlı lisans geçersiz veya süresi dolmuş.",
+            "invalid_selected": "Geçersiz lisans dosyası seçildi."
+        },
+        "startup": {
+            "title": "Başlatma Hatası",
+            "failed": "Uygulama başlatılırken bir sorun oluştu."
+        }
+    },
+    "loading": {
+        "progress": "Yükleniyor... %",
+        "messages": [
+            "Sistem başlatılıyor...",
+            "Bileşenler yükleniyor...",
+            "Lisans kontrol ediliyor...",
+            "Hazır!"
+        ]
+    },
+    "filters": {
+        "license_files": "Lisans Dosyaları (*.key)"
+    }
+}
