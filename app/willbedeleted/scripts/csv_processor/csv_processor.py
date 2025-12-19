@@ -8,36 +8,24 @@ from app.willbedeleted.managers.csv_manager import CSVManager
 class CSVProcessor:
 
     @staticmethod
-    def process():
-        """Tüm işlemleri sırayla yapar."""
+    def process(df: pd.DataFrame | None = None) -> pd.DataFrame:
+        """Tüm işlemleri sırayla yapar ve DataFrame döndürür."""
         try:
-            df = CSVManager.get_csv_df()
-            if df is None or df.empty:
+            if df is None:
+                df = CSVManager.get_csv_df()
+            if df.empty:
                 raise ValueError("İşlenecek merkezi DataFrame mevcut değil veya boş.")
 
-            # İşleme başla
-            df = CSVProcessor.improved_preprocess(df)
-            CSVManager.set_csv_df(df)
-            CSVProcessor.save_csv()
+            processed_df = CSVProcessor.improved_preprocess(df)
+            CSVManager.set_csv_df(processed_df)
+            return processed_df 
+        
         except ValueError as e:
             print(f"İşleme sırasında hata: {e}")
+            raise
         except Exception as e:
             print(f"Bilinmeyen hata: {e}")
-
-    @staticmethod
-    def save_csv():
-        """İşlenmiş DataFrame'i CSV dosyasına kaydeder."""
-        df = CSVManager.get_csv_df()
-        column_order = [
-            "React ID", "Barkot No", "Hasta Adı", "Uyarı", "Kuyu No",
-            "FAM Ct", "HEX Ct", "Δ Ct", "rfu_diff", "fam_end_rfu", "hex_end_rfu",
-            "FAM koordinat list", "HEX koordinat list"
-        ]
-        df = df[column_order]
-        file_path = CSVManager.get_csv_file_path()
-        df.to_csv(file_path, index=False)
-        CSVManager.set_csv_df(df)
-        print(f"İşlenmiş CSV dosyası kaydedildi: {file_path}")
+            raise
 
     @staticmethod
     def improved_preprocess(df):
@@ -145,5 +133,12 @@ class CSVProcessor:
             (((df["fam_end_rfu"]) < 1200) | (df["hex_end_rfu"] < 1200)) & (df["Uyarı"].isnull()),
             "Uyarı"
         ] = "Düşük RFU Değeri"
-
+        
+        column_order = [
+            "React ID", "Barkot No", "Hasta Adı", "Uyarı", "Kuyu No",
+            "FAM Ct", "HEX Ct", "Δ Ct", "rfu_diff", "fam_end_rfu", "hex_end_rfu",
+            "FAM koordinat list", "HEX koordinat list"
+        ]
+        df = df[[col for col in column_order if col in df.columns]]
+        
         return df

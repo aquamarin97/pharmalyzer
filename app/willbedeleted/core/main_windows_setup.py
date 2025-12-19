@@ -162,7 +162,7 @@ class MainWindow(QMainWindow):
             self.colored_box_handler.define_box_color()  # Hesaplama işlemini doğrudan tetikle
 
         else:
-            print("Analiz sırasında bir hata oluştu.")
+            print("Analiz sırasında bir hata oluştu. bkz: # app\willbedeleted\core\main_windows_setup.py - 1")
 
     ### extacted methods ###
     def _setup_well_managers(self):
@@ -286,7 +286,7 @@ class MainWindow(QMainWindow):
             self.colored_box_handler.define_box_color()
             self._on_analysis_completed()  # Tabloyu doğrudan güncelle
         else:
-            print("Analiz sırasında bir hata oluştu.")
+            print("Analiz sırasında bir hata oluştu. bkz: # app\willbedeleted\core\main_windows_setup.py - 2")
 
     def _on_analysis_completed(self):
         """

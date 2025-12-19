@@ -11,6 +11,7 @@ from app.willbedeleted.scripts.pcr_graph_drawer import GraphDrawer
 from app.willbedeleted.controllers.regression_controller import RegressionGraphViewer
 from app.willbedeleted.managers.csv_manager import CSVManager
 from app.willbedeleted.utils.file_utils.rdml_processor import UtilsRDMLProcessor
+from app.services.data_store import DataStore
 
 from app.models.workers.analysis_worker import AnalysisWorker
 
@@ -69,8 +70,8 @@ class MainModel(QObject):
 
     # ---- CSV resets ----
     def reset_data(self):
-        CSVManager.clear_csv_file_path()
-        CSVManager.clear_csv_df()
+        DataStore.clear()
+
 
 
     # ---- Analysis (async) ----

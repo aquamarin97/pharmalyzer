@@ -7,7 +7,7 @@ from app.willbedeleted.config.config import (CSV_FILE_HEADERS, DROPDOWN_COLUMN, 
 from app.willbedeleted.managers.csv_manager import CSVManager
 from app.willbedeleted.models.drop_down_delegate import DropDownDelegate
 from app.willbedeleted.models.editable_table_model import EditableTableModel
-
+from app.services.data_store import DataStore
 
 class TableController(QObject):
     """
@@ -36,14 +36,12 @@ class TableController(QObject):
         self.uncertain_range = uncertain_range
 
     def load_csv(self):
-        try:
-            df = self._get_csv_data()
-            df = self._round_columns(df)
-            df = self._filter_columns(df)
+        df = DataStore.get_df_copy()
+        if df is None or df.empty:
+            raise ValueError("No data loaded. DataStore is empty.")
+        self.model.set_dataframe(df)  # modelin nasıl set edildiğine göre uyarlayın
 
-            self._update_model(df)
-        except Exception as e:
-            print(f"CSV yüklenirken hata oluştu: {e}")
+
 
     def _get_csv_data(self):
         """CSV verisini DataFrame olarak döndürür."""

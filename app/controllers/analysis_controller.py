@@ -129,7 +129,7 @@ class AnalysisController:
             self.model.colored_box_handler.define_box_color()
             self._on_analysis_completed()
         else:
-            print("Analiz sırasında bir hata oluştu.")
+            print("Analiz sırasında bir hata oluştu. bkz: pp\controllers\analysis_controller.py - 1")
 
     def on_analysis_completed(self):
         self._on_analysis_completed()
@@ -158,4 +158,4 @@ class AnalysisController:
             self.model.colored_box_handler.define_box_color()
             self._on_analysis_completed()
         else:
-            print("Analiz sırasında bir hata oluştu.")
+            print("Analiz sırasında bir hata oluştu. bkz: pp\controllers\analysis_controller.py - 2")

@@ -2,86 +2,65 @@
 import threading
 
 import pandas as pd
+import warnings
 
 from app.willbedeleted.utils.file_utils.csv_utils import UtilsCSV
 
-
+from app.services.data_store import DataStore
+from app.services.rdml_service import DEFAULT_HEADERS
 class CSVManager:
     """
-    Geçici dosya yollarını ve merkezi veriyi yöneten statik sınıf.
+    Legacy compatibility layer that proxies all access to the in-memory DataStore.
     """
+    _lock = threading.RLock()
 
-    _csv_file_path = None  # Sınıf düzeyinde bir değişken
-    _csv_df = None  # DataFrame'in merkezi değişkeni
-    _lock = threading.Lock()  # Çoklu iş parçacığı güvenliği için kilit
 
     @staticmethod
     def set_csv_file_path(file_path: str):
-        """
-        Geçici CSV dosyasının yolunu ayarlar.
+        """Deprecated: path-based storage is no longer used."""
+        warnings.warn("CSV file paths are deprecated; data is kept in-memory.", DeprecationWarning)
 
-        Args:
-            file_path (str): Geçici CSV dosyasının tam yolu.
-        """
-        CSVManager._csv_file_path = file_path
-
-    @staticmethod
-    def get_csv_file_path() -> str:
-        """
-        Geçici CSV dosyasının yolunu döndürür.
-
-        Returns:
-            str: Geçici CSV dosyasının tam yolu.
-        """
-
-        return CSVManager._csv_file_path
+    def get_csv_file_path() -> str | None:
+        """Deprecated: path-based storage is no longer used."""
+        warnings.warn("CSV file paths are deprecated; data is kept in-memory.", DeprecationWarning)
+        return None
 
     @staticmethod
     def clear_csv_file_path():
-        """
-        Geçici CSV dosya yolunu temizler.
-        """
-        CSVManager._csv_file_path = None
+        """Deprecated: path-based storage is no longer used."""
+        warnings.warn("CSV file paths are deprecated; data is kept in-memory.", DeprecationWarning)
 
     @staticmethod
-    def set_csv_df(df):
-        """
-        Geçici bir DataFrame bilgisini ayarlar.
+    def set_csv_df(df: pd.DataFrame):
+        """Store DataFrame in the shared DataStore."""
+        DataStore.set_df(df)
 
-        Args:
-            df (pd.DataFrame): Ayarlanacak DataFrame.
-        """
-        with CSVManager._lock:  # Çoklu iş parçacığında güvenli işlem
-            CSVManager._csv_df = df
-        # print("DataFrame merkezi olarak ayarlandı.")
 
     @staticmethod
     def get_csv_df() -> pd.DataFrame:
-        """
-        Merkezi DataFrame bilgisini döndürür.
-
-        Returns:
-            pd.DataFrame: Merkezi olarak tutulan DataFrame.
-        """
-
-        if CSVManager._csv_df is None:
+        """Retrieve the stored DataFrame."""
+        df = DataStore.get_df()
+        if df is None:
             raise ValueError("Merkezi DataFrame ayarlanmamış.")
-        return CSVManager._csv_df
-
+        return df
+    
     @staticmethod
     def clear_csv_df():
-        """
-        Merkezi DataFrame bilgisini temizler.
-        """
-        with CSVManager._lock:
-            CSVManager._csv_df = None
-        print("Merkezi DataFrame temizlendi.")
+        """Clear the stored DataFrame."""
+        DataStore.clear()
 
     @staticmethod
-    def update_csv_df():
-        """_dataframi günceller_"""
-        df = UtilsCSV.read_csv(CSVManager._csv_file_path)
-        # DataFrame'i CSVManager'a aktar
-        CSVManager.set_csv_df(df)
-
-        # print("CSV verisi başarıyla güncellendi.")
+    def update_csv_df() -> pd.DataFrame:
+        """
+        Stabilize columns without touching disk.
+        Ensures DEFAULT_HEADERS exist and returns the refreshed DataFrame.
+        """
+        with CSVManager._lock:
+            df = DataStore.get_df()
+            if df is None:
+                raise ValueError("Merkezi DataFrame ayarlanmamış.") 
+            for header in DEFAULT_HEADERS:
+                if header not in df.columns:
+                    df[header] = ""
+            DataStore.set_df(df)
+            return df

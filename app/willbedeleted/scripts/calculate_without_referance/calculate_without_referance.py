@@ -17,11 +17,16 @@ class CalculateWithoutReferance:
     """
 
     def __init__(self):
-        self.df = CSVManager.get_csv_df()
+        self.df = None
 
-    def process(self):
-        """Veri yüklemesi, analiz ve sonuç dosyası oluşturma işlemlerini yürütür."""
+    def process(self, df=None):
+        """Veri yüklemesi, analiz ve sonuçları hafızada saklama işlemlerini yürütür."""
+        if df is None:
+            df = CSVManager.get_csv_df()
+        if df is None or df.empty:
+            raise ValueError("İşlenecek veri bulunamadı.")
 
+        self.df = df.copy()
         # Geçerli veriler (uyarı yok veya düşük RFU)
         valid_data = self.df[
             (self.df["Uyarı"].isnull()) | (self.df["Uyarı"] == "Düşük RFU Değeri")
@@ -43,10 +48,8 @@ class CalculateWithoutReferance:
         # Geçerli ve geçersiz veriler birleştirilir
         self.df = pd.concat([valid_data, invalid_data], ignore_index=True)
 
-        # Dosya yolu alınır ve CSV olarak kaydedilir
-        file_path = CSVManager.get_csv_file_path()
-        self.df.to_csv(file_path, index=False)
-        CSVManager.update_csv_df()
+        CSVManager.set_csv_df(self.df)
+        return self.df
 
     def penalize_third_center(
         self,

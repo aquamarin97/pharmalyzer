@@ -10,21 +10,24 @@ class ConfigurateResultCSV:
 
     def __init__(self, checkbox_status):
 
-        self.df = CSVManager.get_csv_df()
+        self.df = None
         self.checkbox_status = checkbox_status
 
-    def process(self):
-        """Tüm işlemleri sırayla yapar."""
+    def process(self, df=None):
+        """Tüm işlemleri sırayla yapar ve DataFrame'i hafızada günceller."""
+        if df is None:
+            df = CSVManager.get_csv_df()
+        if df is None or df.empty:
+            raise ValueError("İşlenecek veri bulunamadı.")
 
+        self.df = df.copy()
         self.add_hasta_no()
         self.add_nihai_sonuc()  # Nihai Sonuç sütununu ekle
         self.sort_by_hasta_no()  # Hasta No'ya göre sıralama
         self.reorder_columns()  # Kolon sırasını düzenle
-        file_path = CSVManager.get_csv_file_path()
-        self.df.to_csv(file_path, index=False)
-
-        CSVManager.update_csv_df()
-
+        CSVManager.set_csv_df(self.df)
+        return self.df 
+    
     def add_hasta_no(self):
         """Hasta No sütununu ekler."""
         # Tüm Kuyu No listesini oluştur

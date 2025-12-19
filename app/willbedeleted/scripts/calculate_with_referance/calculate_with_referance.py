@@ -11,15 +11,22 @@ class CalculateWithReferance:
     """Referans ile hesaplama yapan bağımsız sınıf."""
 
     def __init__(self, referance_well, carrier_range: float, uncertain_range: float):
-        self.df = CSVManager.get_csv_df()
+        self.df = None
         self.referance_well = referance_well
         self.carrier_range = carrier_range
         self.uncertain_range = uncertain_range
+        self.last_success = True
+    def process(self, df=None):
+        """Hesaplamaları yürütür ve güncellenmiş DataFrame döndürür."""
 
-    def process(self):
-        """Hesaplamaları yürütür."""
+        if df is None:
+            df = CSVManager.get_csv_df()
+        if df is None or df.empty:
+            raise ValueError("İşlenecek veri bulunamadı.")
 
+        self.df = df.copy()
         is_success = self.set_referance_value()
+        self.last_success = is_success
 
         # Valid data seçimi (Uyarı sütunu boş veya "Düşük RFU Değeri" olan satırlar)
         valid_data = self.df[(self.df["Uyarı"].isnull()) | (self.df["Uyarı"] == "Düşük RFU Değeri")].copy()
@@ -30,12 +37,8 @@ class CalculateWithReferance:
 
         # Tüm verileri birleştir
         self.df = pd.concat([valid_data, invalid_data], ignore_index=True)
-        # df bilgisini sakla
-
-        file_path = CSVManager.get_csv_file_path()
-        self.df.to_csv(file_path, index=False)
-        CSVManager.update_csv_df()
-        return is_success
+        CSVManager.set_csv_df(self.df)
+        return self.df
 
     def set_referance_value(self):
         """Referans kuyu Δ Ct değerini alır ve initial_static_value olarak atar."""

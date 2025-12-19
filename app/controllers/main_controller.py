@@ -1,5 +1,4 @@
 # app\controllers\main_controller.py
-# main_controller.py
 from PyQt5.QtCore import Qt
 from app.views.main_view import MainView
 from app.models.main_model import MainModel
@@ -103,13 +102,11 @@ class MainController:
             self.view.show_warning(str(e))
 
     def _on_analyze_button_click(self):
-        success = self.model.run_analysis()
-        if success:
-            print("Analiz başarıyla tamamlandı.")
-            self.model.colored_box_handler.define_box_color()
-            self._on_analysis_completed()
-        else:
-            print("Analiz sırasında bir hata oluştu.")
+        """
+        Starts analysis asynchronously; completion is handled by signals.
+        """
+        self.model.run_analysis()   # artık return bekleme
+        print("Analiz başlatıldı...")
 
     def on_analysis_completed(self):
         self._on_analysis_completed()

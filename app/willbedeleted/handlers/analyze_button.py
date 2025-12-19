@@ -10,6 +10,7 @@ from app.willbedeleted.scripts.calculate_without_referance.calculate_without_ref
 from app.willbedeleted.scripts.configurate_result_csv.configurate_result_csv import \
     ConfigurateResultCSV
 from app.willbedeleted.scripts.csv_processor.csv_processor import CSVProcessor
+from app.services.pipeline import Pipeline
 
 
 class AnalyzeButton(QObject):
@@ -21,7 +22,6 @@ class AnalyzeButton(QObject):
 
     def __init__(self):
         super().__init__()
-        # self.csv_file_path = CSVManager.get_csv_file_path()  # İşlenecek dosyanın yolu
         self.referance_well = "F12"  # Referans kuyunun varsayılan konumu
         self.checkbox_status = True
         self.carrier_range = 0.5999
@@ -64,38 +64,32 @@ class AnalyzeButton(QObject):
             bool: Analiz işleminin başarı durumu.
         """
         try:
-            # --- CSV manager df bilgisini güncelle
             CSVManager.update_csv_df()
 
-            # --- İşlem başlat # Release Öncesi ekstra kayıt işlemlerini kontrol et
-            CSVProcessor.process()
-
-            # --- Referanslı hesaplama için Sınıfı başlat
             print(f"gönderilen: {self.carrier_range}")
             referance_calculation = CalculateWithReferance(
                 self.referance_well, self.carrier_range, self.uncertain_range
             )
-            is_succesful = referance_calculation.process()
-            if is_succesful == False:
-                self.set_checkbox_status(True)
-                print(self.checkbox_status)
-                
-            # --- Regresyon Hesaplaması
+
             regration_calculation = CalculateRegration()
-            regration_calculation.process()
 
-            # --- Yazılım Hesaplaması
             software_calculation = CalculateWithoutReferance()
-            software_calculation.process()
 
-
-            # --- Configurate Result CSV
             configurate_csv = ConfigurateResultCSV(self.checkbox_status)
-            configurate_csv.process()
 
-            # --- İşlem tamamlandığında sinyal yayımlayın
-            csv_file_path = CSVManager.get_csv_file_path()
-            self.analysisCompleted.emit(csv_file_path)
+            Pipeline.run(
+                [
+                    CSVProcessor.process,
+                    referance_calculation.process,
+                    regration_calculation.process,
+                    software_calculation.process,
+                    configurate_csv.process,
+                ]
+            )
+            if not referance_calculation.last_success:
+                self.set_checkbox_status(True)
+            self.analysisCompleted.emit("in-memory")
+
 
             return True
         except ValueError as e:

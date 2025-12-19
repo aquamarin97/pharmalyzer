@@ -7,18 +7,19 @@ from app.willbedeleted.managers.csv_manager import CSVManager
 
 class CalculateRegration:
     def __init__(self):
-        self.df = CSVManager.get_csv_df()
+        self.df = None
 
-    def process(self):
+    def process(self, df=None):
+        if df is None:
+            df = CSVManager.get_csv_df()
+        if df is None or df.empty:
+            raise ValueError("İşlenecek veri bulunamadı.")
+        self.df = df.copy()
         self.calculate_regration()
-        # csv dosya yolu
-        file_path = CSVManager.get_csv_file_path()
-        # dosyayı güncelle
-        self.df.to_csv(file_path, index=False)
-        # df yi güncelle
-        CSVManager.update_csv_df()
+        CSVManager.set_csv_df(self.df)
         print("<<< REGRESYON ADIMI TAMAMLANDI >>>")
-
+        return self.df
+    
     def calculate_regration(self):
         """Regresyon hesaplamalarını yapar ve sonuçları kaydeder."""
         if self.df is None:
