@@ -1,3 +1,4 @@
+# app\willbedeleted\scripts\csv_processor\csv_processor.py
 
 import pandas as pd
 
@@ -128,8 +129,8 @@ class CSVProcessor:
 
         df.loc[
             (
-                (df["FAM Ct"] > 35)
-                | (df["HEX Ct"] > 35)
+                (df["FAM Ct"] > 40)
+                | (df["HEX Ct"] > 40)
                 | (df["FAM Ct"].isna())
                 | (df["HEX Ct"].isna())
             )

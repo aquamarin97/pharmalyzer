@@ -1,3 +1,4 @@
+# app\willbedeleted\handlers\table_view_handler.py
 from PyQt5.QtCore import QObject, Qt
 from PyQt5.QtGui import QKeyEvent
 

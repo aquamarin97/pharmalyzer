@@ -1,4 +1,4 @@
-# pharmalizer_v2/app/licensing/ui.py
+# app\licensing\ui.py
 import os
 
 from PyQt5.QtWidgets import QFileDialog, QMessageBox, QApplication

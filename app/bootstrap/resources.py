@@ -1,4 +1,4 @@
-# pharmalizer_v2/app/bootstrap/resources.py
+# app\bootstrap\resources.py
 import os
 import sys
 

@@ -1,3 +1,4 @@
+# app\willbedeleted\license\license_functions.py
 import hashlib
 import os
 import sys

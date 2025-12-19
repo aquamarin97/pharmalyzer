@@ -1,4 +1,4 @@
-# pharmalizer_v2/app/licensing/manager.py
+# app\licensing\manager.py
 import os
 
 

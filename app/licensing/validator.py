@@ -1,4 +1,4 @@
-# pharmalizer_v2/app/licensing/validator.py
+# app\licensing\validator.py
 import json
 import uuid
 from dataclasses import dataclass

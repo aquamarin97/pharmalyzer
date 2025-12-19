@@ -1,3 +1,4 @@
+# app\constants\app_styles.py
 from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtCore import Qt
 

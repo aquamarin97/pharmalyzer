@@ -1,4 +1,4 @@
-# app/i18n/__init__.py
+# app\i18n\__init__.py
 from .loader import Translator
 
 # Kısa kullanım için

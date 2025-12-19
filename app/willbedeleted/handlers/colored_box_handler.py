@@ -1,3 +1,4 @@
+# app\willbedeleted\handlers\colored_box_handler.py
 from PyQt5.QtCore import QObject, pyqtSignal
 
 from app.willbedeleted.managers.csv_manager import CSVManager

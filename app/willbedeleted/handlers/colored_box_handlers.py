@@ -1,3 +1,4 @@
+# app\willbedeleted\handlers\colored_box_handlers.py
 from PyQt5.QtCore import QObject, pyqtSignal
 
 

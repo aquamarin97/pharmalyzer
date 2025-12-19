@@ -1,4 +1,4 @@
-# controllers/drag_drop_controller.py
+# app\controllers\drag_drop_controller.py
 from app.willbedeleted.handlers.drag_handler import DragDropHandler
 
 

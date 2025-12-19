@@ -1,3 +1,4 @@
+# app\willbedeleted\handlers\analyze_button.py
 from PyQt5.QtCore import QObject, pyqtSignal
 
 from app.willbedeleted.managers.csv_manager import CSVManager

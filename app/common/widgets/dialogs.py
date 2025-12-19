@@ -1,4 +1,4 @@
-# app/common/widgets/dialogs.py
+# app\common\widgets\dialogs.py
 
 from typing import Optional
 

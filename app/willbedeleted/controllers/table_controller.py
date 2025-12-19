@@ -1,3 +1,4 @@
+# app\willbedeleted\controllers\table_controller.py
 import pandas as pd
 from PyQt5.QtCore import QObject
 

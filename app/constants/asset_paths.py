@@ -1,3 +1,4 @@
+# app\constants\asset_paths.py
 import os
 
 # Uygulamanın ana dizinini (projeye göre değişebilir) veya 

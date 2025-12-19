@@ -1,4 +1,4 @@
-# app/i18n/loader.py
+# app\i18n\loader.py
 from __future__ import annotations
 
 import json

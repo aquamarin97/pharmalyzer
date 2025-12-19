@@ -1,3 +1,4 @@
+# app\views\main_view.py
 # main_view.py
 import sys
 from PyQt5.QtWidgets import QMainWindow, QApplication, QMessageBox, QFileDialog

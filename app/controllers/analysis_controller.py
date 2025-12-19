@@ -1,4 +1,4 @@
-# controllers/analysis_controller.py
+# app\controllers\analysis_controller.py
 from PyQt5.QtCore import Qt
 
 from app.willbedeleted.utils.file_utils.output_file import (

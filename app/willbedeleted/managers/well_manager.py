@@ -1,3 +1,4 @@
+# app\willbedeleted\managers\well_manager.py
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QLineEdit
 

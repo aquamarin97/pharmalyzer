@@ -1,7 +1,6 @@
-# app/models/main_model.py
+# app\models\main_model.py
 from dataclasses import dataclass
 import pandas as pd
-from dataclasses import dataclass
 from app.services.rdml_service import RDMLService
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 

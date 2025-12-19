@@ -1,3 +1,4 @@
+# app\willbedeleted\controllers\regression_controller.py
 import pyqtgraph as pg
 from PyQt5.QtWidgets import QVBoxLayout, QSizePolicy
 

@@ -1,3 +1,4 @@
+# app\willbedeleted\config\config.py
 ##### --- TABLO AYARLARI --- #####
 from PyQt5.QtGui import QColor
 

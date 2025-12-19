@@ -1,3 +1,4 @@
+# app\willbedeleted\managers\regression_plot_manager.py
 import numpy as np
 import pyqtgraph as pg
 

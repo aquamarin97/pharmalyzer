@@ -1,0 +1,135 @@
+pharmalyzer/
+├── .gitignore
+├── 15.01.2025_SMA_6871 plate_1.rdml
+├── a.txt
+├── folders.py
+├── main.py
+├── main_helper.py
+├── main_python.py
+├── requirements.txt
+└── tapphelper.py
+└── app/
+    └── __init__.py
+    └── bootstrap/
+        ├── resources.py
+        └── splash.py
+    └── common/
+        └── widgets/
+            └── dialogs.py
+    └── constants/
+        ├── app_styles.py
+        ├── app_text_key.py
+        └── asset_paths.py
+    └── controllers/
+        ├── analysis_controller.py
+        ├── drag_drop_controller.py
+        ├── graph_controller.py
+        ├── main_controller.py
+        ├── table_controller.py
+        └── well_controller.py
+    └── exceptions/
+        ├── base.py
+        ├── handler.py
+        ├── types.py
+        └── __init__.py
+    └── i18n/
+        ├── loader.py
+        └── __init__.py
+        └── translations/
+            └── tr.json
+    └── licensing/
+        ├── manager.py
+        ├── ui.py
+        ├── validator.py
+        └── __init__.py
+    └── logging/
+        ├── setup.py
+        └── __init__.py
+    └── models/
+        └── main_model.py
+        └── workers/
+            └── analysis_worker.py
+    └── services/
+        ├── data_store.py
+        ├── pipeline.py
+        └── rdml_service.py
+    └── utils/
+        └── pandas_utils.py
+        └── rdml/
+            ├── rdml_parser.py
+            └── rdml_reader.py
+    └── views/
+        └── main_view.py
+        └── ui/
+            └── ui.py
+    └── willbedeleted/
+        └── config/
+            └── config.py
+        └── controllers/
+            ├── regression_controller.py
+            └── table_controller.py
+        └── core/
+            ├── colored_box_utils.py
+            └── main_windows_setup.py
+        └── handlers/
+            ├── analyze_button.py
+            ├── colored_box_handler.py
+            ├── colored_box_handlers.py
+            ├── drag_handler.py
+            ├── graph_handlers.py
+            └── table_view_handler.py
+        └── license/
+            └── license_functions.py
+        └── managers/
+            ├── csv_manager.py
+            ├── pcr_graph_manager.py
+            ├── regression_plot_manager.py
+            ├── table_manager.py
+            └── well_manager.py
+        └── models/
+            ├── drop_down_delegate.py
+            ├── editable_table_model.py
+            └── regration_model.py
+        └── scripts/
+            └── pcr_graph_drawer.py
+            └── calculate_regration/
+                └── calculate_regration.py
+            └── calculate_without_referance/
+                └── calculate_without_referance.py
+            └── calculate_with_referance/
+                └── calculate_with_referance.py
+            └── configurate_result_csv/
+                └── configurate_result_csv.py
+            └── csv_processor/
+                └── csv_processor.py
+        └── utils/
+            └── rdml_utils.py
+            └── file_utils/
+                ├── csv_utils.py
+                ├── output_file.py
+                ├── rdml_processor.py
+                └── xml_utils.py
+            └── validators/
+                ├── data_Validor.py
+                └── well_validators.py
+        └── widgets/
+            └── table_view_widget.py
+└── assets/
+    ├── a.txt
+    ├── appicon.ico
+    ├── appicon.png
+    └── pharmalinelogo.svg
+└── config/
+    └── a.txt
+└── deployments/
+    └── a.txt
+└── docs/
+    └── a.txt
+└── logs/
+    └── pharmalizer.log
+└── resources/
+    └── a.txt
+└── scripts/
+    └── a.txt
+└── tests/
+    └── a.txt

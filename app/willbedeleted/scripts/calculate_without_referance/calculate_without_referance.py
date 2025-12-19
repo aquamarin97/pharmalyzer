@@ -1,3 +1,4 @@
+# app\willbedeleted\scripts\calculate_without_referance\calculate_without_referance.py
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize

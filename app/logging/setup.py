@@ -1,4 +1,4 @@
-# app/logging/setup.py
+# app\logging\setup.py
 import logging
 from logging.handlers import RotatingFileHandler
 import os

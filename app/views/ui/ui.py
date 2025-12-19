@@ -1,3 +1,4 @@
+# app\views\ui\ui.py
 # -*- coding: utf-8 -*-
 
 # Form implementation generated from reading ui file 'final_design_v2_test.ui'

@@ -1,3 +1,4 @@
+# app\willbedeleted\core\main_windows_setup.py
 import sys
 
 from PyQt5 import QtWidgets

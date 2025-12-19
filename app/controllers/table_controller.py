@@ -1,4 +1,4 @@
-# controllers/table_controller.py
+# app\controllers\table_controller.py
 from app.willbedeleted.widgets.table_view_widget import TableViewWidget
 from app.willbedeleted.config.config import TABLE_WIDGET_HEADERS
 from app.willbedeleted.managers.table_manager import TableManager

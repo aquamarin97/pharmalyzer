@@ -1,3 +1,4 @@
+# app\willbedeleted\widgets\table_view_widget.py
 from PyQt5.QtCore import QEvent, Qt, QTimer
 from PyQt5.QtGui import QStandardItemModel
 from PyQt5.QtWidgets import QTableView

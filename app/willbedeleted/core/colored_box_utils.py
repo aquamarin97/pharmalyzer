@@ -1,3 +1,4 @@
+# app\willbedeleted\core\colored_box_utils.py
 def update_widget_color(widget, condition):
     """
     Widget'ın rengini belirtilen şarta göre günceller.

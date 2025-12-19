@@ -1,3 +1,4 @@
+# app\controllers\main_controller.py
 # main_controller.py
 from PyQt5.QtCore import Qt
 from app.views.main_view import MainView

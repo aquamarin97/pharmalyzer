@@ -1,3 +1,4 @@
+# app\willbedeleted\scripts\calculate_with_referance\calculate_with_referance.py
 import sys
 
 import pandas as pd
