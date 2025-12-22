@@ -1,16 +1,16 @@
 # app\models\main_model.py
 from dataclasses import dataclass
 import pandas as pd
+from app.controllers.colored_box_controller import ColoredBoxController
+from app.services.analysis_service import AnalysisService
 from app.services.rdml_service import RDMLService
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 
-from app.willbedeleted.handlers.colored_box_handler import ColoredBoxHandler
 from app.willbedeleted.scripts.pcr_graph_drawer import GraphDrawer
 from app.willbedeleted.controllers.regression_controller import RegressionGraphViewer
 from app.services.data_store import DataStore
 
 from app.models.workers.analysis_worker import AnalysisWorker
-from app.services.analysis_service import AnalyzeButton
 from app.services.pcr_data_service import PCRDataService
 
 
@@ -37,8 +37,8 @@ class MainModel(QObject):
         self.state = MainState()
         self.rdml_df: pd.DataFrame | None = None
         # İş bileşenleri
-        self.colored_box_handler = ColoredBoxHandler()
-        self.analyze_button = AnalyzeButton()
+        self.colored_box_controller = ColoredBoxController()
+        self.analysis_service = AnalysisService()
         self.data_manager = PCRDataService()
 
         # Grafik bileşenleri (container'lar controller/view tarafında bağlanıyor)
@@ -49,7 +49,7 @@ class MainModel(QObject):
         self._analysis_thread = QThread(
             self
         )  # parent ver ki life-cycle daha güvenli olsun
-        self._worker = AnalysisWorker(self.analyze_button)
+        self._worker = AnalysisWorker(self.analysis_service)
         self._worker.moveToThread(self._analysis_thread)
 
         # start signal -> worker.run (queued)
@@ -100,3 +100,20 @@ class MainModel(QObject):
         """
         self._analysis_thread.quit()
         self._analysis_thread.wait()
+    def set_checkbox_status(self, v: bool):
+        self.analysis_service.set_checkbox_status(v)
+
+    def set_referance_well(self, v: str):
+        self.analysis_service.set_referance_well(v)
+
+    def set_carrier_range(self, v: float):
+        self.analysis_service.set_carrier_range(v)
+
+    def set_uncertain_range(self, v: float):
+        self.analysis_service.set_uncertain_range(v)
+
+    def get_carrier_range(self) -> float:
+        return self.analysis_service.config.carrier_range
+
+    def get_uncertain_range(self) -> float:
+        return self.analysis_service.config.uncertain_range

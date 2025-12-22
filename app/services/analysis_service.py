@@ -1,6 +1,6 @@
-# app\willbedeleted\handlers\analyze_button.py
-from PyQt5.QtCore import QObject, pyqtSignal
+# app/services/analysis_service.py
 
+from dataclasses import dataclass
 
 from app.services.pipeline import Pipeline
 from app.services.analysis_steps.calculate_with_referance import CalculateWithReferance
@@ -10,93 +10,63 @@ from app.services.analysis_steps.configurate_result_csv import ConfigurateResult
 from app.services.analysis_steps.csv_processor import CSVProcessor
 
 
-class AnalyzeButton(QObject):
-    """
-    Analiz işlemini yürüten sınıf.
-    """
+@dataclass
+class AnalysisConfig:
+    referance_well: str = "F12"
+    checkbox_status: bool = True
+    carrier_range: float = 0.5999
+    uncertain_range: float = 0.6199
 
-    analysisCompleted = pyqtSignal(str)  # Dosya yolunu yayımlayan sinyal
 
-    def __init__(self):
-        super().__init__()
-        self.referance_well = "F12"  # Referans kuyunun varsayılan konumu
-        self.checkbox_status = True
-        self.carrier_range = 0.5999
-        self.uncertain_range = 0.6199
+class AnalysisService:
+    def __init__(self, config: AnalysisConfig | None = None):
+        self.config = config or AnalysisConfig()
 
-    def set_referance_well(self, referance_well):
-        """
-        Referans kuyunun konumunu ayarlar.
+    def set_referance_well(self, v: str):
+        self.config.referance_well = v
 
-        Args:
-            referance_well (str): Kuyunun konumu.
-        """
-        self.referance_well = referance_well
-        print(self.referance_well)
+    def set_checkbox_status(self, v: bool):
+        self.config.checkbox_status = v
 
-    def set_carrier_range(self, carrier_range):
-        carrier_val = float(carrier_range)
-        uncertain_val = float(self.uncertain_range)
-        if carrier_val < uncertain_val:
-            self.carrier_range = carrier_val
-            print(self.carrier_range)
-        else:
+    def set_carrier_range(self, v: float):
+        v = float(v)
+        if v >= float(self.config.uncertain_range):
             raise ValueError("Taşıyıcı aralığı belirsiz aralığından düşük olmalıdır.")
-        
-    def set_uncertain_range(self, uncertain_range):
-        uncertain_val = float(uncertain_range)
-        carrier_val = float(self.carrier_range)
-        if uncertain_val > carrier_val:
-            self.uncertain_range = uncertain_val
-        else:
-            raise ValueError("Belirsiz aralığı taşıyıcı aralığından yüksek olmalıdır.") 
-        
-    def set_checkbox_status(self, checkbox_status):
-        
-        self.checkbox_status = checkbox_status
-        print(
-            f"analiz buton sınıfında checkbox durumu {self.checkbox_status} olarak güncellendi."
-        )
+        self.config.carrier_range = v
 
-    def analyze(self):
+    def set_uncertain_range(self, v: float):
+        v = float(v)
+        if v <= float(self.config.carrier_range):
+            raise ValueError("Belirsiz aralığı taşıyıcı aralığından yüksek olmalıdır.")
+        self.config.uncertain_range = v
+
+    def run(self) -> bool:
         """
-        Analiz işlemini gerçekleştirir ve gerekli dosyaları işler.
-
-        Returns:
-            bool: Analiz işleminin başarı durumu.
+        Pipeline'ı çalıştırır. DataStore üzerinde çalıştığı varsayımıyla True/False döner.
         """
         try:
-
-            print(f"gönderilen: {self.carrier_range}")
-            referance_calculation = CalculateWithReferance(
-                self.referance_well, self.carrier_range, self.uncertain_range
+            ref_step = CalculateWithReferance(
+                self.config.referance_well,
+                self.config.carrier_range,
+                self.config.uncertain_range,
             )
+            reg_step = CalculateRegration()
+            sw_step = CalculateWithoutReferance()
+            post_step = ConfigurateResultCSV(self.config.checkbox_status)
 
-            regration_calculation = CalculateRegration()
+            Pipeline.run([
+                CSVProcessor.process,
+                ref_step.process,
+                reg_step.process,
+                sw_step.process,
+                post_step.process,
+            ])
 
-            software_calculation = CalculateWithoutReferance()
-
-            configurate_csv = ConfigurateResultCSV(self.checkbox_status)
-
-            Pipeline.run(
-                [
-                    CSVProcessor.process,
-                    referance_calculation.process,
-                    regration_calculation.process,
-                    software_calculation.process,
-                    configurate_csv.process,
-                ]
-            )
-            print("Pipeline.run Çalıştı")
-
-            if not referance_calculation.last_success:
-                self.set_checkbox_status(True)
-            self.analysisCompleted.emit("in-memory")
+            # referans kuyusu boşsa checkbox zorla True
+            if not ref_step.last_success:
+                self.config.checkbox_status = True
 
             return True
-        except ValueError as e:
-            print(f"Hata: {e}")
-            return False
         except Exception as e:
-            print(f"Bilinmeyen hata: {e}")
+            print(f"[AnalysisService] hata: {e}")
             return False

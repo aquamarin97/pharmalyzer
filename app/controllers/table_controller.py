@@ -1,6 +1,9 @@
+# app\controllers\table_controller.py
 import pandas as pd
 
+from app.controllers.table_interaction_controller import TableInteractionController
 from app.services.data_store import DataStore
+from app.services.pcr_data_service import PCRDataService
 from app.willbedeleted.widgets.table_view_widget import TableViewWidget
 from app.willbedeleted.config.config import (
     CSV_FILE_HEADERS,
@@ -12,7 +15,6 @@ from app.willbedeleted.config.config import (
 from app.willbedeleted.managers.table_manager import TableManager
 from app.willbedeleted.models.drop_down_delegate import DropDownDelegate
 from app.willbedeleted.models.editable_table_model import EditableTableModel
-from app.willbedeleted.handlers.table_view_handler import TableViewHandler
 
 
 class AppTableController:
@@ -53,18 +55,15 @@ class AppTableController:
         headers = TABLE_WIDGET_HEADERS
         manager = TableManager(ui.table_widget_resulttable, headers)
         manager.create_empty_table()
-
-
-        handler = TableViewHandler(
-            table_widget=ui.table_widget_resulttable,
-            model=None,
-            data_manager=self.model.data_manager,
-            graph_drawer=self.model.graph_drawer,  # GraphDrawer GraphController'da initialize ediliyor
-        )
-
         self.table_widget = ui.table_widget_resulttable
         self.table_manager = manager
-        self.table_handler = handler
+
+        self.table_interaction = TableInteractionController(
+            table_widget=self.table_widget,
+            pcr_data_service=PCRDataService,
+            graph_drawer=self.model.graph_drawer
+        )
+
 
     # range setters (analysis spinbox kullanıyor)
     def set_carrier_range(self, val: float):
@@ -87,8 +86,7 @@ class AppTableController:
         self._update_model(df)
 
         # Handler'e güncel model ata
-        self.table_handler.model = self.table_model
-        self.table_handler.table_widget.setModel(self.table_handler.model)
+        #self.table_handler.table_widget.setModel(self.table_handler.model)
 
     def _round_columns(self, df):
         """Belirli sütunları yuvarlar."""

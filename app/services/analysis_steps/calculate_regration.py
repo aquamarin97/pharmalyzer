@@ -1,4 +1,5 @@
-# app\willbedeleted\scripts\calculate_regration\calculate_regration.py
+# app\services\analysis_steps\calculate_regration.py
+
 import numpy as np
 from sklearn.linear_model import LinearRegression
 import pandas as pd

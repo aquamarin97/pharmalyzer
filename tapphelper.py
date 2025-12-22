@@ -106,4 +106,59 @@ class TAppHelper:
             print(f"✅ Klasör yapısı '{output_filename}' dosyasına yazıldı.")
 
         except Exception as e:
-            print(f"❌ Hata: {e}")
+            print(f"❌ Hata: {e}") 
+            
+    @staticmethod
+    def fix_path_comments():
+        """
+        Dosya başındaki yolu kontrol eder:
+        - Yanlışsa siler ve doğrusunu ekler.
+        - Yoksa ekler.
+        - Doğruysa dokunmaz.
+        """
+        root_dir = Path.cwd()
+        print(f"--- Güncelleme İşlemi Başlatıldı ---")
+
+        updated_count = 0
+        correct_count = 0
+
+        for py_file in root_dir.rglob("*.py"):
+            if py_file.name == "tapphelper.py" or not py_file.is_file():
+                continue
+            
+            try:
+                relative_path = py_file.relative_to(root_dir)
+                correct_comment = f"# {relative_path}\n"
+                
+                with open(py_file, "r", encoding="utf-8") as f:
+                    content = f.readlines()
+
+                needs_update = False
+                
+                if content and content[0].startswith("# "):
+                    if content[0] == correct_comment:
+                        # Zaten doğru yol ekli
+                        correct_count += 1
+                        continue
+                    else:
+                        # Başında yorum var ama YANLIŞ yol. 
+                        # İlk satırı atıp yenisini ekleyeceğiz.
+                        content = content[1:]
+                        needs_update = True
+                else:
+                    # Başında hiç yorum satırı yok
+                    needs_update = True
+
+                if needs_update:
+                    new_content = [correct_comment] + content
+                    with open(py_file, "w", encoding="utf-8") as f:
+                        f.writelines(new_content)
+                    
+                    print(f"Güncellendi: {relative_path}")
+                    updated_count += 1
+
+            except Exception as e:
+                print(f"Hata ({py_file.name}): {e}")
+
+        print(f"\n--- İşlem Tamamlandı ---")
+        print(f"Güncellenen/Eklenen: {updated_count} | Zaten Doğru: {correct_count}")

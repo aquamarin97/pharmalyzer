@@ -1,4 +1,5 @@
-# app/willbedeleted/scripts/configurate_result_csv/configurate_result_csv.py
+# app\services\analysis_steps\configurate_result_csv.py
+
 import string
 from app.willbedeleted.config.config import CSV_FILE_HEADERS
 

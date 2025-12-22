@@ -28,6 +28,7 @@ pharmalyzer/
         ├── graph_controller.py
         ├── main_controller.py
         ├── table_controller.py
+        ├── table_interaction_controller.py
         └── well_controller.py
     └── exceptions/
         ├── base.py
@@ -82,8 +83,7 @@ pharmalyzer/
         └── handlers/
             ├── colored_box_handler.py
             ├── colored_box_handlers.py
-            ├── graph_handlers.py
-            └── table_view_handler.py
+            └── graph_handlers.py
         └── license/
             └── license_functions.py
         └── managers/

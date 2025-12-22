@@ -1,54 +1,110 @@
-# app/services/pcr_data_service.py
+# app\services\pcr_data_service.py
+
 from __future__ import annotations
 
 import ast
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Iterable, List, Tuple
 
 import pandas as pd
 
 from app.services.data_store import DataStore
 
 
+Coord = Tuple[int, float]
+
+
+@dataclass(frozen=True)
+class PCRCoords:
+    fam: List[Coord]
+    hex: List[Coord]
+
+
 class PCRDataService:
     """
     Grafik için gerekli koordinat verilerini DataStore'dan okur.
+    UI/Qt bağımlılığı yoktur.
     """
 
+    HASTA_NO_COL = "Hasta No"
+    FAM_COL = "FAM koordinat list"
+    HEX_COL = "HEX koordinat list"
+
     @staticmethod
-    def get_row_by_patient_no(patient_no: Any) -> dict:
+    def get_coords(patient_no: Any) -> PCRCoords:
+        """
+        Hasta No -> (FAM coords, HEX coords)
+
+        Returns:
+            PCRCoords(fam=[(cyc, fluor), ...], hex=[(cyc, fluor), ...])
+        """
         df = DataStore.get_df_copy()
         if df is None or df.empty:
             raise ValueError("DataStore boş. Veri yüklenmedi.")
 
-        if "Hasta No" not in df.columns:
-            raise ValueError("DataFrame içinde 'Hasta No' sütunu yok.")
-        if "FAM koordinat list" not in df.columns or "HEX koordinat list" not in df.columns:
-            raise ValueError("Koordinat sütunları eksik (FAM/HEX koordinat list).")
+        PCRDataService._validate_columns(df)
 
-        # Hasta No'yu int'e normalize et (1..96 bekleniyor gibi)
+        pn = PCRDataService._normalize_patient_no(patient_no)
+
+        row = PCRDataService._find_row_by_patient_no(df, pn)
+        fam_coords = PCRDataService._parse_coords(row.iloc[0][PCRDataService.FAM_COL], label="FAM")
+        hex_coords = PCRDataService._parse_coords(row.iloc[0][PCRDataService.HEX_COL], label="HEX")
+
+        return PCRCoords(fam=fam_coords, hex=hex_coords)
+
+    @staticmethod
+    def _validate_columns(df: pd.DataFrame) -> None:
+        missing = [c for c in (PCRDataService.HASTA_NO_COL, PCRDataService.FAM_COL, PCRDataService.HEX_COL) if c not in df.columns]
+        if missing:
+            raise ValueError(f"DataFrame içinde eksik kolon(lar) var: {missing}")
+
+    @staticmethod
+    def _normalize_patient_no(patient_no: Any) -> int:
         try:
             pn = int(float(patient_no))
         except (TypeError, ValueError):
             raise ValueError(f"Geçersiz Hasta No: {patient_no}")
 
-        # df tarafını da numeric'e çek (eşleşme garanti)
-        hasta_no_series = pd.to_numeric(df["Hasta No"], errors="coerce").astype("Int64")
-        row = df[hasta_no_series == pn]
+        # İstersen sınır koy (plate 1..96 varsayımı)
+        if pn < 1 or pn > 96:
+            # sınırı esnetmek istersen bu check'i kaldırabilirsin
+            raise ValueError(f"Hasta No aralık dışı: {pn} (beklenen 1..96)")
 
+        return pn
+
+    @staticmethod
+    def _find_row_by_patient_no(df: pd.DataFrame, pn: int) -> pd.DataFrame:
+        hasta_no_series = pd.to_numeric(df[PCRDataService.HASTA_NO_COL], errors="coerce").astype("Int64")
+        row = df[hasta_no_series == pn]
         if row.empty:
             raise ValueError(f"Hasta No '{pn}' için bir kayıt bulunamadı.")
+        return row
 
-        fam_raw = row.iloc[0]["FAM koordinat list"]
-        hex_raw = row.iloc[0]["HEX koordinat list"]
-
+    @staticmethod
+    def _parse_coords(raw: Any, label: str) -> List[Coord]:
+        # raw string ise parse et, list ise olduğu gibi al
         try:
-            fam_coords = ast.literal_eval(fam_raw) if isinstance(fam_raw, str) else fam_raw
-            hex_coords = ast.literal_eval(hex_raw) if isinstance(hex_raw, str) else hex_raw
+            coords = ast.literal_eval(raw) if isinstance(raw, str) else raw
         except Exception as e:
-            raise ValueError(f"Koordinat listesi parse edilemedi: {e}")
+            raise ValueError(f"{label} koordinat listesi parse edilemedi: {e}")
 
-        # En azından liste bekliyoruz
-        if not isinstance(fam_coords, list) or not isinstance(hex_coords, list):
-            raise ValueError("Koordinat listeleri list formatında değil.")
+        if coords is None:
+            return []
 
-        return {"FAM": fam_coords, "HEX": hex_coords}
+        if not isinstance(coords, list):
+            raise ValueError(f"{label} koordinat listesi list formatında değil: {type(coords)}")
+
+        # normalize + validate: [(int, float), ...]
+        out: List[Coord] = []
+        for item in coords:
+            if not isinstance(item, (list, tuple)) or len(item) != 2:
+                # örn: [(cyc, fluor), ...] bekleniyor
+                continue
+            try:
+                cyc = int(item[0])
+                fluor = float(item[1])
+                out.append((cyc, fluor))
+            except (TypeError, ValueError):
+                continue
+
+        return out

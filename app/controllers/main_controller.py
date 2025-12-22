@@ -5,14 +5,9 @@ from app.models.main_model import MainModel
 from app.willbedeleted.controllers.regression_controller import RegressionGraphViewer
 from app.willbedeleted.utils.file_utils.output_file import export_table_to_excel_with_path
 from app.willbedeleted.managers.well_manager import WellEditManager
-from app.willbedeleted.widgets.table_view_widget import TableViewWidget
-from app.willbedeleted.config.config import TABLE_WIDGET_HEADERS
-from app.willbedeleted.managers.table_manager import TableManager
 from app.willbedeleted.scripts.pcr_graph_drawer import GraphDrawer
 from app.controllers.table_controller import AppTableController
 from app.controllers.drag_drop_controller import DragDropController
-
-
 
 
 class MainController:
@@ -29,12 +24,12 @@ class MainController:
         self._initialize_graphics()
 
         # Signals from model components
-        self.model.colored_box_handler.calculationCompleted.connect(
+        self.model.colored_box_controller.calculationCompleted.connect(
             self.view.update_colored_box_widgets
         )
-        self.model.analyze_button.analysisCompleted.connect(
-            self.on_analysis_completed
-        )
+
+        self.model.analysis_finished.connect(self._on_async_analysis_finished)
+        self.model.analysis_error.connect(self.view.show_warning)
 
         # Init components + signals
         self.initialize_components()
@@ -85,25 +80,37 @@ class MainController:
 
     def _on_checkbox_state_changed(self, state: int):
         is_checked = state == Qt.Checked
-        self.model.colored_box_handler.set_check_box_status(is_checked)
-        self.model.analyze_button.set_checkbox_status(is_checked)
+        self.model.colored_box_controller.set_check_box_status(is_checked)
+        self.model.set_checkbox_status(is_checked)  # <-- analyze_button yerine
+
+
+    def _on_async_analysis_finished(self, success: bool):
+        if success:
+            self.model.colored_box_controller.define_box_color()  # <-- EKLE
+            self._on_analysis_completed()
+        else:
+            self.view.show_warning("Analiz başarısız oldu.")
 
     def _validate_and_set_range(self, val: float, range_type: str):
         try:
             if range_type == "carrier":
-                if val < self.model.analyze_button.uncertain_range:
-                    self.model.analyze_button.set_carrier_range(val)
+                # artık config'i model üzerinden oku
+                if val < self.model.get_uncertain_range():
+                    self.model.set_carrier_range(val)
                     self.table_controller.set_carrier_range(val)
                 else:
                     raise ValueError("Taşıyıcı aralığı belirsiz aralığından düşük olmalıdır.")
+
             elif range_type == "uncertain":
-                if val > self.model.analyze_button.carrier_range:
-                    self.model.analyze_button.set_uncertain_range(val)
+                if val > self.model.get_carrier_range():
+                    self.model.set_uncertain_range(val)
                     self.table_controller.set_uncertain_range(val)
                 else:
                     raise ValueError("Belirsiz aralığı taşıyıcı aralığından yüksek olmalıdır.")
+
         except ValueError as e:
             self.view.show_warning(str(e))
+
 
     def _on_analyze_button_click(self):
         """
@@ -129,22 +136,22 @@ class MainController:
         self.referans_kuyu_manager = WellEditManager(
             line_edit=ui.lineEdit_standart_kuyu,
             default_value="F12",
-            callback=self.model.analyze_button.set_referance_well,
+            callback=self.model.set_referance_well,  # <-- analyze_button yerine
         )
         self.homozigot_manager = WellEditManager(
             line_edit=ui.line_edit_saglikli_kontrol,
             default_value="F12",
-            callback=self.model.colored_box_handler.set_homozigot_line_edit,
+            callback=self.model.colored_box_controller.set_homozigot_line_edit,
         )
         self.heterozigot_manager = WellEditManager(
             line_edit=ui.line_edit_tasiyici_kontrol,
             default_value="G12",
-            callback=self.model.colored_box_handler.set_heterozigot_line_edit,
+            callback=self.model.colored_box_controller.set_heterozigot_line_edit,
         )
         self.ntc_manager = WellEditManager(
             line_edit=ui.line_edit_NTC_kontrol,
             default_value="H12",
-            callback=self.model.colored_box_handler.set_NTC_line_edit,
+            callback=self.model.colored_box_controller.set_NTC_line_edit,
         )
 
     # ---- Drag & drop / init / reset ----
