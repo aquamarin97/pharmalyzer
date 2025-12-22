@@ -1,2 +1,6 @@
 git commit -m "Mimari degisiklik: RAM tabanli DataStore ve Pipeline sistemine gecilmesine hazırlık 3" 
-git push origin master
+git push origin master 
+
+
+  git config --global user.email "takmahesap1@gmail.com"
+  git config --global user.name "Your Name"
