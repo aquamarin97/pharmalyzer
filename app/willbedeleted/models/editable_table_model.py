@@ -6,7 +6,7 @@ from PyQt5.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PyQt5.QtGui import QBrush, QColor
 
 from app.willbedeleted.config.config import DROPDOWN_OPTIONS
-from app.willbedeleted.managers.csv_manager import CSVManager
+from app.services.data_store import DataStore
 
 
 class EditableTableModel(QAbstractTableModel):
@@ -26,9 +26,10 @@ class EditableTableModel(QAbstractTableModel):
     ):
         """
         QTableView için düzenlenebilir bir model.
-        """
+        """       
         super().__init__()
-        self._data = CSVManager.get_csv_df()
+        self._data = DataStore.get_df_copy()
+
         self.headers = list(self._data.columns)  # Varsayılan başlıklar
         self.dropdown_column = dropdown_column
         self.dropdown_options = dropdown_options

@@ -1,7 +1,6 @@
 # app\willbedeleted\handlers\analyze_button.py
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from app.willbedeleted.managers.csv_manager import CSVManager
 from app.willbedeleted.scripts.calculate_regration.calculate_regration import CalculateRegration
 from app.willbedeleted.scripts.calculate_with_referance.calculate_with_referance import \
     CalculateWithReferance
@@ -69,7 +68,6 @@ class AnalyzeButton(QObject):
             bool: Analiz işleminin başarı durumu.
         """
         try:
-            CSVManager.update_csv_df()
 
             print(f"gönderilen: {self.carrier_range}")
             referance_calculation = CalculateWithReferance(

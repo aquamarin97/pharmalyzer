@@ -1,22 +1,20 @@
 # app\willbedeleted\scripts\calculate_regration\calculate_regration.py
 import numpy as np
 from sklearn.linear_model import LinearRegression
-
-from app.willbedeleted.managers.csv_manager import CSVManager
-
+import pandas as pd
 
 class CalculateRegration:
     def __init__(self):
-        self.df = None
+        self.df: pd.DataFrame | None = None
 
-    def process(self, df=None):
+    def process(self, df: pd.DataFrame | None = None) -> pd.DataFrame:
         if df is None:
-            df = CSVManager.get_csv_df()
-        if df is None or df.empty:
+            raise ValueError("CalculateRegration.process Pipeline tarafından df ile çağrılmalıdır.")
+        if df.empty:
             raise ValueError("İşlenecek veri bulunamadı.")
-        self.df = df.copy()
+
+        self.df = df.copy(deep=True)
         self.calculate_regration()
-        CSVManager.set_csv_df(self.df)
         print("<<< REGRESYON ADIMI TAMAMLANDI >>>")
         return self.df
     

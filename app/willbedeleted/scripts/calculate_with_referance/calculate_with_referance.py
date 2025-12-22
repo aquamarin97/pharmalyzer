@@ -1,45 +1,35 @@
-# app\willbedeleted\scripts\calculate_with_referance\calculate_with_referance.py
+# app/willbedeleted/scripts/calculate_with_referance/calculate_with_referance.py
 import sys
-
 import pandas as pd
 from PyQt5.QtWidgets import QApplication, QMessageBox
 
-from app.willbedeleted.managers.csv_manager import CSVManager
-
 
 class CalculateWithReferance:
-    """Referans ile hesaplama yapan bağımsız sınıf."""
-
     def __init__(self, referance_well, carrier_range: float, uncertain_range: float):
         self.df = None
         self.referance_well = referance_well
-        self.carrier_range = carrier_range
-        self.uncertain_range = uncertain_range
+        self.carrier_range = float(carrier_range)
+        self.uncertain_range = float(uncertain_range)
         self.last_success = True
-    def process(self, df=None):
-        """Hesaplamaları yürütür ve güncellenmiş DataFrame döndürür."""
 
+    def process(self, df: pd.DataFrame | None = None) -> pd.DataFrame:
         if df is None:
-            df = CSVManager.get_csv_df()
-        if df is None or df.empty:
+            raise ValueError("CalculateWithReferance.process Pipeline tarafından df ile çağrılmalıdır.")
+        if df.empty:
             raise ValueError("İşlenecek veri bulunamadı.")
 
-        self.df = df.copy()
+        self.df = df.copy(deep=True)
         is_success = self.set_referance_value()
         self.last_success = is_success
 
-        # Valid data seçimi (Uyarı sütunu boş veya "Düşük RFU Değeri" olan satırlar)
-        valid_data = self.df[(self.df["Uyarı"].isnull()) | (self.df["Uyarı"] == "Düşük RFU Değeri")].copy()
-        invalid_data = self.df[~((self.df["Uyarı"].isnull()) | (self.df["Uyarı"] == "Düşük RFU Değeri"))].copy()
+        valid_mask = (self.df["Uyarı"].isnull()) | (self.df["Uyarı"] == "Düşük RFU Değeri")
+        valid_data = self.df[valid_mask].copy()
+        invalid_data = self.df[~valid_mask].copy()
 
-        # Hesaplamaları tamamla
         valid_data = self.finalize_data(valid_data)
-
-        # Tüm verileri birleştir
         self.df = pd.concat([valid_data, invalid_data], ignore_index=True)
-        CSVManager.set_csv_df(self.df)
         return self.df
-
+    
     def set_referance_value(self):
         """Referans kuyu Δ Ct değerini alır ve initial_static_value olarak atar."""
         if not self.referance_well or pd.isna(self.referance_well):

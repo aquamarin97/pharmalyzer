@@ -1,0 +1,2 @@
+git commit -m "Mimari degisiklik: RAM tabanli DataStore ve Pipeline sistemine gecilmesine hazırlık 3" 
+git push origin master

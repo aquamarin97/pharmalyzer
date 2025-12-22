@@ -2,8 +2,8 @@
 import pyqtgraph as pg
 from PyQt5.QtWidgets import QVBoxLayout, QSizePolicy
 
-from app.willbedeleted.managers.csv_manager import CSVManager
 from app.willbedeleted.managers.regression_plot_manager import RegressionPlotManager
+from app.services.data_store import DataStore
 
 
 class RegressionGraphViewer:
@@ -38,7 +38,7 @@ class RegressionGraphViewer:
 
     def update_graph(self):
         try:
-            df = CSVManager.get_csv_df()
+            df = DataStore.get_df_copy()
 
             plot_manager = RegressionPlotManager(df)
             plot_manager.render_on_plotitem(

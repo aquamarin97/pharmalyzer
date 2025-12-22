@@ -1,8 +1,8 @@
 # app\willbedeleted\handlers\table_view_handler.py
 from PyQt5.QtCore import QObject, Qt
 from PyQt5.QtGui import QKeyEvent
+from app.willbedeleted.models.drop_down_delegate import DropDownDelegate
 
-from app.willbedeleted.controllers.table_controller import DropDownDelegate
 from app.willbedeleted.models.editable_table_model import EditableTableModel
 
 

@@ -1,32 +1,25 @@
-# app\willbedeleted\scripts\configurate_result_csv\configurate_result_csv.py
+# app/willbedeleted/scripts/configurate_result_csv/configurate_result_csv.py
 import string
-
 from app.willbedeleted.config.config import CSV_FILE_HEADERS
-from app.willbedeleted.managers.csv_manager import CSVManager
 
 
 class ConfigurateResultCSV:
-    """React ID'leri işleyen ve eksik olanları tamamlayan bir sınıf."""
-
-    def __init__(self, checkbox_status):
-
+    def __init__(self, checkbox_status: bool):
         self.df = None
         self.checkbox_status = checkbox_status
 
     def process(self, df=None):
-        """Tüm işlemleri sırayla yapar ve DataFrame'i hafızada günceller."""
         if df is None:
-            df = CSVManager.get_csv_df()
-        if df is None or df.empty:
+            raise ValueError("ConfigurateResultCSV.process Pipeline tarafından df ile çağrılmalıdır.")
+        if df.empty:
             raise ValueError("İşlenecek veri bulunamadı.")
 
-        self.df = df.copy()
+        self.df = df.copy(deep=True)
         self.add_hasta_no()
-        self.add_nihai_sonuc()  # Nihai Sonuç sütununu ekle
-        self.sort_by_hasta_no()  # Hasta No'ya göre sıralama
-        self.reorder_columns()  # Kolon sırasını düzenle
-        CSVManager.set_csv_df(self.df)
-        return self.df 
+        self.add_nihai_sonuc()
+        self.sort_by_hasta_no()
+        self.reorder_columns()
+        return self.df
     
     def add_hasta_no(self):
         """Hasta No sütununu ekler."""

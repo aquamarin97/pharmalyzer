@@ -1,8 +1,10 @@
 pharmalyzer/
 ├── .gitignore
+├── 1.txt
 ├── 15.01.2025_SMA_6871 plate_1.rdml
 ├── a.txt
 ├── folders.py
+├── git_commends.txt
 ├── main.py
 ├── main_helper.py
 ├── main_python.py
@@ -66,16 +68,13 @@ pharmalyzer/
         └── config/
             └── config.py
         └── controllers/
-            ├── regression_controller.py
-            └── table_controller.py
+            └── regression_controller.py
         └── core/
-            ├── colored_box_utils.py
-            └── main_windows_setup.py
+            └── colored_box_utils.py
         └── handlers/
             ├── analyze_button.py
             ├── colored_box_handler.py
             ├── colored_box_handlers.py
-            ├── drag_handler.py
             ├── graph_handlers.py
             └── table_view_handler.py
         └── license/

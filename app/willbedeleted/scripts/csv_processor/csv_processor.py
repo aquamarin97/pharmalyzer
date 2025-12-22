@@ -2,8 +2,6 @@
 
 import pandas as pd
 
-from app.willbedeleted.managers.csv_manager import CSVManager
-
 
 class CSVProcessor:
 
@@ -12,13 +10,13 @@ class CSVProcessor:
         """Tüm işlemleri sırayla yapar ve DataFrame döndürür."""
         try:
             if df is None:
-                df = CSVManager.get_csv_df()
+                raise ValueError("CSVProcessor.process Pipeline tarafından df ile çağrılmalıdır.")
+
             if df.empty:
                 raise ValueError("İşlenecek merkezi DataFrame mevcut değil veya boş.")
 
             processed_df = CSVProcessor.improved_preprocess(df)
-            CSVManager.set_csv_df(processed_df)
-            return processed_df 
+            return processed_df
         
         except ValueError as e:
             print(f"İşleme sırasında hata: {e}")
@@ -46,6 +44,11 @@ class CSVProcessor:
         df = df.drop(columns=[col for col in cols_to_clear if col in df.columns], errors='ignore')
 
         df = CSVProcessor.fill_missing_react_ids(df)
+
+        if "FAM koordinat list" not in df.columns:
+            df["FAM koordinat list"] = "[]"
+        if "HEX koordinat list" not in df.columns:
+            df["HEX koordinat list"] = "[]"
 
         df["FAM koordinat list"] = df["FAM koordinat list"].fillna("[]").astype(str)
         df["HEX koordinat list"] = df["HEX koordinat list"].fillna("[]").astype(str)

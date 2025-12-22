@@ -5,15 +5,13 @@ from app.services.rdml_service import RDMLService
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 
 from app.willbedeleted.handlers.colored_box_handler import ColoredBoxHandler
-from app.willbedeleted.handlers.analyze_button import AnalyzeButton
-from app.willbedeleted.managers.pcr_graph_manager import DataManager
 from app.willbedeleted.scripts.pcr_graph_drawer import GraphDrawer
 from app.willbedeleted.controllers.regression_controller import RegressionGraphViewer
-from app.willbedeleted.managers.csv_manager import CSVManager
-from app.willbedeleted.utils.file_utils.rdml_processor import UtilsRDMLProcessor
 from app.services.data_store import DataStore
 
 from app.models.workers.analysis_worker import AnalysisWorker
+from app.services.analysis_service import AnalyzeButton
+from app.services.pcr_data_service import PCRDataService
 
 
 @dataclass
@@ -41,7 +39,7 @@ class MainModel(QObject):
         # İş bileşenleri
         self.colored_box_handler = ColoredBoxHandler()
         self.analyze_button = AnalyzeButton()
-        self.data_manager = DataManager()
+        self.data_manager = PCRDataService()
 
         # Grafik bileşenleri (container'lar controller/view tarafında bağlanıyor)
         self.graph_drawer: GraphDrawer | None = None
@@ -88,8 +86,12 @@ class MainModel(QObject):
         self._start_analysis.emit()
 
     # ---- RDML processing ----
-    def process_rdml_to_csv(self, file_path: str):
-        UtilsRDMLProcessor.process(file_path)
+    def import_rdml(self, file_path: str):
+        """
+        RDML dosyasını okuyup DataStore'a DataFrame olarak yükler.
+        """
+        df = RDMLService.rdml_to_dataframe(file_path)
+        DataStore.set_df(df)
 
     # ---- Cleanup (opsiyonel ama iyi pratik) ----
     def shutdown(self):

@@ -1,7 +1,7 @@
 # app\willbedeleted\handlers\colored_box_handler.py
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from app.willbedeleted.managers.csv_manager import CSVManager
+from app.services.data_store import DataStore
 
 
 class ColoredBoxHandler(QObject):
@@ -44,7 +44,10 @@ class ColoredBoxHandler(QObject):
         homozigot_row = df[df["Kuyu No"] == self.homozigot_line_edit]
         if not homozigot_row.empty:
             yazilim_sonucu = homozigot_row[column_name].iloc[0]
-            return yazilim_sonucu >= 0.5999
+            try:
+                return float(yazilim_sonucu) >= 0.5999
+            except (TypeError, ValueError):
+                return False
         return False
 
     def _check_heterozigot(self, df, column_name):
@@ -52,7 +55,10 @@ class ColoredBoxHandler(QObject):
         heterozigot_row = df[df["Kuyu No"] == self.heterozigot_line_edit]
         if not heterozigot_row.empty:
             yazilim_sonucu = heterozigot_row[column_name].iloc[0]
-            return yazilim_sonucu < 0.5999
+            try:
+                return float(yazilim_sonucu) < 0.5999
+            except (TypeError, ValueError):
+                return False
         return False
 
     def _check_ntc(self, df):
@@ -66,8 +72,13 @@ class ColoredBoxHandler(QObject):
     def define_box_color(self):
         """Box renklerini belirler ve sinyal gönderir."""
 
-        # CSV'den veri al
-        df = CSVManager.get_csv_df()
+        df = DataStore.get_df_copy()
+        if df is None or df.empty:
+            # İstersen burada warning print de atabilirsin
+            self.last_result = [False, False, False]
+            self.calculationCompleted.emit(self.last_result)
+            return
+
         column_name = self._get_relevant_column()
 
         # Sonuçları topla

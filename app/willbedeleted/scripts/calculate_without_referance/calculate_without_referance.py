@@ -1,54 +1,30 @@
-# app\willbedeleted\scripts\calculate_without_referance\calculate_without_referance.py
+# app/willbedeleted/scripts/calculate_without_referance/calculate_without_referance.py
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 from sklearn.cluster import KMeans
 
-from app.willbedeleted.managers.csv_manager import CSVManager
-
 
 class CalculateWithoutReferance:
-    """Referans olmadan hesaplama yapan ana sınıf.
-
-    - K-means ile Ct değerlerinden kümeler oluşturur.
-    - İlk üç merkeze dayalı olarak bir statik referans değeri hesaplar.
-    - Optimize ederek son istatistik oranlarını üretir.
-    - Sonuçları sınıflandırarak değerlendirir.
-    """
-
     def __init__(self):
         self.df = None
 
-    def process(self, df=None):
-        """Veri yüklemesi, analiz ve sonuçları hafızada saklama işlemlerini yürütür."""
+    def process(self, df: pd.DataFrame | None = None) -> pd.DataFrame:
         if df is None:
-            df = CSVManager.get_csv_df()
-        if df is None or df.empty:
+            raise ValueError("CalculateWithoutReferance.process Pipeline tarafından df ile çağrılmalıdır.")
+        if df.empty:
             raise ValueError("İşlenecek veri bulunamadı.")
 
-        self.df = df.copy()
-        # Geçerli veriler (uyarı yok veya düşük RFU)
-        valid_data = self.df[
-            (self.df["Uyarı"].isnull()) | (self.df["Uyarı"] == "Düşük RFU Değeri")
-        ].copy()
-
-        # Geçersiz veriler (diğer tum uyarılar)
-        invalid_data = self.df[
-            ~((self.df["Uyarı"].isnull()) | (self.df["Uyarı"] == "Düşük RFU Değeri"))
-        ].copy()
+        self.df = df.copy(deep=True)
+        valid_mask = (self.df["Uyarı"].isnull()) | (self.df["Uyarı"] == "Düşük RFU Değeri")
+        valid_data = self.df[valid_mask].copy()
+        invalid_data = self.df[~valid_mask].copy()
 
         print("\n<<< İSTATİSTİK ORANI HESAPLANIYOR >>>")
-
-        # Statik referans değeri hesaplanır
         new_static_value = self.optimize_static_value(valid_data)
-
-        # Nihai hesaplamalar ve sınıflandırma yapılır
         valid_data = self.finalize_data(valid_data, new_static_value)
 
-        # Geçerli ve geçersiz veriler birleştirilir
         self.df = pd.concat([valid_data, invalid_data], ignore_index=True)
-
-        CSVManager.set_csv_df(self.df)
         return self.df
 
     def penalize_third_center(

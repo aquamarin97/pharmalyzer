@@ -8,9 +8,9 @@ from app.willbedeleted.managers.well_manager import WellEditManager
 from app.willbedeleted.widgets.table_view_widget import TableViewWidget
 from app.willbedeleted.config.config import TABLE_WIDGET_HEADERS
 from app.willbedeleted.managers.table_manager import TableManager
-from app.willbedeleted.handlers.drag_handler import DragDropHandler
 from app.willbedeleted.scripts.pcr_graph_drawer import GraphDrawer
 from app.controllers.table_controller import AppTableController
+from app.controllers.drag_drop_controller import DragDropController
 
 
 
@@ -66,16 +66,20 @@ class MainController:
         ui.pushButton_temizle.clicked.connect(self._initialize_components)
 
     # ---- Core handlers ----
-    def handle_drop_result(self, success: bool, file_path: str, file_name: str):
-        self._handle_drop_result(success, file_path)
+    def handle_drop_result(self, success: bool, rdml_path: str, file_name: str, message: str):
+        # CMV: UI update burada (View katmanı)
+        self.view.set_dragdrop_label(message)
+
+        self._handle_drop_result(success, rdml_path)
 
         self.model.set_file_name_from_rdml(file_name)
         self.view.set_title_label(self.model.state.file_name)
 
-    def _handle_drop_result(self, success: bool, file_path: str):
+    def _handle_drop_result(self, success: bool, rdml_path: str):
         if success:
             self.view.set_analyze_enabled(True)
-            self.model.process_rdml_to_csv(file_path)
+            # Artık rdml_path gönderiyoruz (xml extracted path değil)
+            self.model.import_rdml(rdml_path)
         else:
             self.view.set_analyze_enabled(False)
 
@@ -145,9 +149,8 @@ class MainController:
 
     # ---- Drag & drop / init / reset ----
     def _setup_drag_and_drop(self):
-        self.drag_drop_handler = DragDropHandler(self.view.ui.label_drag_drop_area)
-        self.drag_drop_handler.setup()
-        self.drag_drop_handler.dropCompleted.connect(self.handle_drop_result)
+        self.drag_drop_controller = DragDropController(self.view.ui.label_drag_drop_area)
+        self.drag_drop_controller.drop_completed.connect(self.handle_drop_result)
 
     def _initialize_components(self):
         self._initialize_graphics()
@@ -163,8 +166,7 @@ class MainController:
         self.setup_well_managers()
 
         self.view.reset_box_colors()
-        self.handle_drop_result(False, "", self.model.state.file_name)
-        self.view.set_dragdrop_label("RDML dosyanızı sürükleyip bırakınız")
+        self.handle_drop_result(False, "", self.model.state.file_name, "RDML dosyanızı sürükleyip bırakınız")
 
         self.reset_regression_graph()
 
@@ -193,5 +195,4 @@ class MainController:
         self.model.set_file_name_from_rdml(file_name)
         self.view.set_title_label(self.model.state.file_name)
 
-        # drag-drop handler içindeki manuel tetik (sende var)
-        self.drag_drop_handler._drop_event_manual(file_path, file_name)
+        self.drag_drop_controller.manual_drop(file_path, file_name)
