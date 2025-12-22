@@ -1,6 +1,7 @@
 # app\services\pipeline.py
 from collections.abc import Iterable
 from typing import Callable
+import traceback
 
 import pandas as pd
 
@@ -30,9 +31,20 @@ class Pipeline:
 
     @staticmethod
     def run(steps: Iterable[Transform]) -> pd.DataFrame:
+        print("pipeline işlemi başlatıldı")
         last_df: pd.DataFrame | None = None
+
         for step in steps:
-            last_df = Pipeline.apply(step)
+            step_name = getattr(step, "__qualname__", repr(step))
+            print(f"[Pipeline] step 시작: {step_name}")
+
+            try:
+                last_df = Pipeline.apply(step)
+            except Exception:
+                print(f"[Pipeline] step hata verdi: {step_name}")
+                traceback.print_exc()
+                raise
+
         if last_df is None:
             raise ValueError("Pipeline adımı bulunamadı.")
         return last_df

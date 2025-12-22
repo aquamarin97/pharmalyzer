@@ -97,15 +97,24 @@ class CSVProcessor:
 
     @staticmethod
     def fill_missing_react_ids(df):
-        all_ids = set(range(1, 97))
-        current_ids = set(df["React ID"])
-        missing_ids = all_ids - current_ids
-        for missing_id in missing_ids:
-            empty_row = {col: "" for col in df.columns}
-            empty_row["React ID"] = missing_id
-            df = pd.concat([df, pd.DataFrame([empty_row])], ignore_index=True)
-        return df.sort_values("React ID").reset_index(drop=True)
+        # React ID her zaman 1..96 numeric olmalı; karışık tipleri temizle
+        df["React ID"] = pd.to_numeric(df["React ID"], errors="coerce")
 
+        # Mevcut ID’leri al (NaN hariç), int set’e çevir
+        current_ids = set(df["React ID"].dropna().astype(int).tolist())
+
+        all_ids = set(range(1, 97))
+        missing_ids = all_ids - current_ids
+
+        # Eksik ID’ler için boş satır ekle
+        for missing_id in sorted(missing_ids):
+            empty_row = {col: "" for col in df.columns}
+            empty_row["React ID"] = int(missing_id)
+            df = pd.concat([df, pd.DataFrame([empty_row])], ignore_index=True)
+
+        # Sıralama artık güvenli (numeric)
+        df = df.sort_values("React ID", kind="mergesort").reset_index(drop=True)
+        return df
     @staticmethod
     def apply_conditions(df):
         df["Uyarı"] = None

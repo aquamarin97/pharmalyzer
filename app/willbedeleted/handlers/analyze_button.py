@@ -38,19 +38,24 @@ class AnalyzeButton(QObject):
         print(self.referance_well)
 
     def set_carrier_range(self, carrier_range):
-        try:
-            if carrier_range < self.uncertain_range:
-                self.carrier_range = carrier_range
-                print(self.carrier_range)
-            else:
-                ValueError
-        except:
-            print("Taşıyıcı aralığı belirsiz aralığından düşük olmalıdır.")
-
+        carrier_val = float(carrier_range)
+        uncertain_val = float(self.uncertain_range)
+        if carrier_val < uncertain_val:
+            self.carrier_range = carrier_val
+            print(self.carrier_range)
+        else:
+            raise ValueError("Taşıyıcı aralığı belirsiz aralığından düşük olmalıdır.")
+        
     def set_uncertain_range(self, uncertain_range):
-        self.uncertain_range = uncertain_range
-
+        uncertain_val = float(uncertain_range)
+        carrier_val = float(self.carrier_range)
+        if uncertain_val > carrier_val:
+            self.uncertain_range = uncertain_val
+        else:
+            raise ValueError("Belirsiz aralığı taşıyıcı aralığından yüksek olmalıdır.") 
+        
     def set_checkbox_status(self, checkbox_status):
+        
         self.checkbox_status = checkbox_status
         print(
             f"analiz buton sınıfında checkbox durumu {self.checkbox_status} olarak güncellendi."
@@ -86,10 +91,11 @@ class AnalyzeButton(QObject):
                     configurate_csv.process,
                 ]
             )
+            print("Pipeline.run Çalıştı")
+
             if not referance_calculation.last_success:
                 self.set_checkbox_status(True)
             self.analysisCompleted.emit("in-memory")
-
 
             return True
         except ValueError as e:

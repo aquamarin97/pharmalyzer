@@ -131,14 +131,23 @@ class EditableTableModel(QAbstractTableModel):
         """
         Yazılım ve Referans Sonucu renk mantığı.
         """
-        if value >= self.uncertain_range:
+        try:
+            v = float(value)
+            carrier = float(self.carrier_range)
+            uncertain = float(self.uncertain_range)
+        except (TypeError, ValueError):
+            return None
+
+        if v >= uncertain:
             return QBrush(QColor("#A9D08E"))  # Pastel yeşil
-        elif self.carrier_range < value <= self.uncertain_range:
+        elif carrier < v <= uncertain:
             return QBrush(QColor("#E87E2C"))  # Daha sıcak turuncu
 
-        elif value <= self.carrier_range:
+        elif v <= carrier:
             return QBrush(QColor("#FFE599"))  # Daha yoğun pastel sarı
         return None
+
+
 
     # def get_warning_brush(self, value: str) -> QBrush:
     #     """

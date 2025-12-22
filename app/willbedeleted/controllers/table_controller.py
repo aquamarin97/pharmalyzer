@@ -39,8 +39,9 @@ class TableController(QObject):
         df = DataStore.get_df_copy()
         if df is None or df.empty:
             raise ValueError("No data loaded. DataStore is empty.")
-        self.model.set_dataframe(df)  # modelin nasıl set edildiğine göre uyarlayın
-
+        df = self._round_columns(df)
+        df = self._filter_columns(df)
+        self._update_model(df)
 
 
     def _get_csv_data(self):

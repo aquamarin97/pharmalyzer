@@ -8,10 +8,9 @@ from app.willbedeleted.managers.well_manager import WellEditManager
 from app.willbedeleted.widgets.table_view_widget import TableViewWidget
 from app.willbedeleted.config.config import TABLE_WIDGET_HEADERS
 from app.willbedeleted.managers.table_manager import TableManager
-from app.willbedeleted.controllers.table_controller import TableController
-from app.willbedeleted.handlers.table_view_handler import TableViewHandler
 from app.willbedeleted.handlers.drag_handler import DragDropHandler
 from app.willbedeleted.scripts.pcr_graph_drawer import GraphDrawer
+from app.controllers.table_controller import AppTableController
 
 
 
@@ -52,7 +51,8 @@ class MainController:
         ui.pushButton_analiz_et.clicked.connect(self._on_analyze_button_click)
         ui.checkBox_istatistik.stateChanged.connect(self._on_checkbox_state_changed)
         ui.pushButton_disaaktar.clicked.connect(
-            lambda: export_table_to_excel_with_path(self.table_widget, self.model.state.file_name)
+            lambda: export_table_to_excel_with_path(self.table_controller.table_widget, self.model.state.file_name)
+
         )
         ui.pushButton_iceaktar.clicked.connect(self._select_rdml_file)
 
@@ -103,22 +103,21 @@ class MainController:
 
     def _on_analyze_button_click(self):
         """
-        Starts analysis asynchronously; completion is handled by signals.
+        This function runs an analysis process and handles success or failure accordingly.
         """
-        self.model.run_analysis()   # artık return bekleme
-        print("Analiz başlatıldı...")
+        self.model.run_analysis()
+
 
     def on_analysis_completed(self):
         self._on_analysis_completed()
 
     def _on_analysis_completed(self):
-        self.table_controller.load_csv()
-        self.table_widget.setModel(self.table_controller.model)
+        # AppTableController zaten table model + handler güncellemeyi kendi içinde yapıyor
+        self.table_controller.load_csv_to_table()
 
-        self.table_handler.model = self.table_controller.model
-        self.table_handler.table_widget.setModel(self.table_handler.model)
-
+        # regression graph update (1 kez yeter)
         self.model.regression_graph_manager.update_graph()
+
 
     # ---- Table / well managers ----
     def setup_well_managers(self):
@@ -144,36 +143,6 @@ class MainController:
             callback=self.model.colored_box_handler.set_NTC_line_edit,
         )
 
-    def setup_table_in_main_window(self):
-        ui = self.view.ui
-        original_widget = ui.table_widget_resulttable
-        ui.table_widget_resulttable = TableViewWidget(original_widget)
-
-        ui.verticalLayout_3.replaceWidget(original_widget, ui.table_widget_resulttable)
-        original_widget.deleteLater()
-
-        ui.table_widget_resulttable.set_column_expansion_ratios(
-            [2, 2, 2, 10, 5, 2, 2, 2, 3, 3, 3, 3]
-        )
-
-        headers = TABLE_WIDGET_HEADERS
-        manager = TableManager(ui.table_widget_resulttable, headers)
-        manager.create_empty_table()
-
-        controller = TableController(table_widget=ui.table_widget_resulttable, model=None)
-
-        handler = TableViewHandler(
-            table_widget=ui.table_widget_resulttable,
-            model=controller.model,
-            data_manager=self.model.data_manager,
-            graph_drawer=self.model.graph_drawer,
-        )
-
-        self.table_widget = ui.table_widget_resulttable
-        self.table_manager = manager
-        self.table_controller = controller
-        self.table_handler = handler
-
     # ---- Drag & drop / init / reset ----
     def _setup_drag_and_drop(self):
         self.drag_drop_handler = DragDropHandler(self.view.ui.label_drag_drop_area)
@@ -186,7 +155,11 @@ class MainController:
         self._setup_drag_and_drop()
         self.view.set_analyze_enabled(False)
 
-        self.setup_table_in_main_window()
+        self.table_controller = AppTableController(
+            view=self.view,
+            model=self.model,
+            graph_controller=None  # şu an kullanılmıyorysa
+        )
         self.setup_well_managers()
 
         self.view.reset_box_colors()
