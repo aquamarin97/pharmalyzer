@@ -52,9 +52,17 @@ pharmalyzer/
         └── workers/
             └── analysis_worker.py
     └── services/
+        ├── analysis_service.py
         ├── data_store.py
+        ├── pcr_data_service.py
         ├── pipeline.py
         └── rdml_service.py
+        └── analysis_steps/
+            ├── calculate_regration.py
+            ├── calculate_without_referance.py
+            ├── calculate_with_referance.py
+            ├── configurate_result_csv.py
+            └── csv_processor.py
     └── utils/
         └── pandas_utils.py
         └── rdml/
@@ -72,7 +80,6 @@ pharmalyzer/
         └── core/
             └── colored_box_utils.py
         └── handlers/
-            ├── analyze_button.py
             ├── colored_box_handler.py
             ├── colored_box_handlers.py
             ├── graph_handlers.py
@@ -80,8 +87,6 @@ pharmalyzer/
         └── license/
             └── license_functions.py
         └── managers/
-            ├── csv_manager.py
-            ├── pcr_graph_manager.py
             ├── regression_plot_manager.py
             ├── table_manager.py
             └── well_manager.py
@@ -91,22 +96,11 @@ pharmalyzer/
             └── regration_model.py
         └── scripts/
             └── pcr_graph_drawer.py
-            └── calculate_regration/
-                └── calculate_regration.py
-            └── calculate_without_referance/
-                └── calculate_without_referance.py
-            └── calculate_with_referance/
-                └── calculate_with_referance.py
-            └── configurate_result_csv/
-                └── configurate_result_csv.py
-            └── csv_processor/
-                └── csv_processor.py
         └── utils/
             └── rdml_utils.py
             └── file_utils/
                 ├── csv_utils.py
                 ├── output_file.py
-                ├── rdml_processor.py
                 └── xml_utils.py
             └── validators/
                 ├── data_Validor.py

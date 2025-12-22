@@ -1,15 +1,13 @@
 # app\willbedeleted\handlers\analyze_button.py
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from app.willbedeleted.scripts.calculate_regration.calculate_regration import CalculateRegration
-from app.willbedeleted.scripts.calculate_with_referance.calculate_with_referance import \
-    CalculateWithReferance
-from app.willbedeleted.scripts.calculate_without_referance.calculate_without_referance import \
-    CalculateWithoutReferance
-from app.willbedeleted.scripts.configurate_result_csv.configurate_result_csv import \
-    ConfigurateResultCSV
-from app.willbedeleted.scripts.csv_processor.csv_processor import CSVProcessor
+
 from app.services.pipeline import Pipeline
+from app.services.analysis_steps.calculate_with_referance import CalculateWithReferance
+from app.services.analysis_steps.calculate_regration import CalculateRegration
+from app.services.analysis_steps.calculate_without_referance import CalculateWithoutReferance
+from app.services.analysis_steps.configurate_result_csv import ConfigurateResultCSV
+from app.services.analysis_steps.csv_processor import CSVProcessor
 
 
 class AnalyzeButton(QObject):
