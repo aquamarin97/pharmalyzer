@@ -8,15 +8,15 @@ EXPORT_PRESETS: dict[str, list[str] | None] = {
     # Örnek preset (istersen değiştir)
     "report_v1": [
         "Hasta No",
-        "Barkot No",
         "Hasta Adı",
-        "Nihai Sonuç",
+        "Barkot No",
         "Uyarı",
         "FAM Ct",
         "HEX Ct",
         "Δ Ct",
+        "Regresyon",
         "İstatistik Oranı",
         "Standart Oranı",
-        "Regresyon",
+        "Nihai Sonuç",
     ],
 }

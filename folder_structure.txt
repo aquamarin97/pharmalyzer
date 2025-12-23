@@ -21,11 +21,13 @@ pharmalyzer/
     └── constants/
         ├── app_styles.py
         ├── app_text_key.py
-        └── asset_paths.py
+        ├── asset_paths.py
+        └── export_presets.py
     └── controllers/
         ├── analysis_controller.py
         ├── colored_box_controller.py
         ├── drag_drop_controller.py
+        ├── export_controller.py
         ├── graph_controller.py
         ├── main_controller.py
         ├── table_controller.py
@@ -67,14 +69,23 @@ pharmalyzer/
             ├── calculate_with_referance.py
             ├── configurate_result_csv.py
             └── csv_processor.py
+        └── export/
+            ├── export_options.py
+            └── export_service.py
+            └── exporters/
+                ├── excel_exporter.py
+                └── tsv_exporter.py
     └── utils/
-        └── pandas_utils.py
+        ├── pandas_utils.py
+        └── qt_table_utils.py
         └── rdml/
             ├── rdml_parser.py
             └── rdml_reader.py
     └── views/
         └── main_view.py
         └── plotting/
+            └── pyqtgraph_regression_renderer.py
+        └── renderers/
             └── pyqtgraph_regression_renderer.py
         └── ui/
             └── ui.py
@@ -83,26 +94,15 @@ pharmalyzer/
     └── willbedeleted/
         └── config/
             └── config.py
-        └── controllers/
-            └── regression_controller.py
-        └── core/
-            └── colored_box_utils.py
-        └── handlers/
-        └── license/
-            └── license_functions.py
         └── managers/
-            ├── regression_plot_manager.py
             ├── table_manager.py
             └── well_manager.py
         └── models/
             ├── drop_down_delegate.py
-            ├── editable_table_model.py
-            └── regration_model.py
+            └── editable_table_model.py
         └── scripts/
             └── pcr_graph_drawer.py
         └── utils/
-            └── file_utils/
-                └── output_file.py
             └── validators/
                 ├── data_Validor.py
                 └── well_validators.py

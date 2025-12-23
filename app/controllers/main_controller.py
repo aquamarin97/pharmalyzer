@@ -4,12 +4,12 @@ from app.controllers.export_controller import ExportController
 from app.services.export.export_options import ExportOptions
 from app.views.main_view import MainView
 from app.models.main_model import MainModel
-from app.willbedeleted.controllers.regression_controller import RegressionGraphViewer
-from app.willbedeleted.utils.file_utils.output_file import export_table_to_excel_with_path
 from app.willbedeleted.managers.well_manager import WellEditManager
 from app.willbedeleted.scripts.pcr_graph_drawer import GraphDrawer
 from app.controllers.table_controller import AppTableController
 from app.controllers.drag_drop_controller import DragDropController
+from app.views.widgets.regression_graph_view import RegressionGraphView
+from app.services.data_store import DataStore
 
 
 class MainController:
@@ -18,9 +18,8 @@ class MainController:
         self.model = model
 
         # RegressionGraphViewer view container istediği için burada bağla
-        self.model.regression_graph_manager = RegressionGraphViewer(
-            self.view.ui.regration_container
-        )
+        self.regression_graph_view = RegressionGraphView(self.view.ui.regration_container)
+
 
         # GraphDrawer init
         self._initialize_graphics()
@@ -132,8 +131,8 @@ class MainController:
         # AppTableController zaten table model + handler güncellemeyi kendi içinde yapıyor
         self.table_controller.load_csv_to_table()
 
-        # regression graph update (1 kez yeter)
-        self.model.regression_graph_manager.update_graph()
+        df = DataStore.get_df_copy()
+        self.regression_graph_view.update(df)
 
 
     # ---- Table / well managers ----
@@ -195,9 +194,8 @@ class MainController:
         layout.addWidget(self.model.graph_drawer)
 
     def reset_regression_graph(self):
-        mgr = getattr(self.model, "regression_graph_manager", None)
-        if mgr:
-            mgr.reset_regression_graph()
+        self.regression_graph_view.reset()
+
 
     # ---- File select ----
     def _select_rdml_file(self):

@@ -85,9 +85,6 @@ class AppTableController:
         df = self._filter_columns(df)
         self._update_model(df)
 
-        # Handler'e güncel model ata
-        #self.table_handler.table_widget.setModel(self.table_handler.model)
-
     def _round_columns(self, df):
         """Belirli sütunları yuvarlar."""
         for col, digits in self.round_columns.items():

@@ -7,7 +7,6 @@ from app.services.rdml_service import RDMLService
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 
 from app.willbedeleted.scripts.pcr_graph_drawer import GraphDrawer
-from app.willbedeleted.controllers.regression_controller import RegressionGraphViewer
 from app.services.data_store import DataStore
 
 from app.models.workers.analysis_worker import AnalysisWorker
@@ -43,7 +42,6 @@ class MainModel(QObject):
 
         # Grafik bileşenleri (container'lar controller/view tarafında bağlanıyor)
         self.graph_drawer: GraphDrawer | None = None
-        self.regression_graph_manager: RegressionGraphViewer | None = None
 
         # --- Async analysis altyapısı ---
         self._analysis_thread = QThread(
