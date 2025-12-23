@@ -24,6 +24,7 @@ pharmalyzer/
         └── asset_paths.py
     └── controllers/
         ├── analysis_controller.py
+        ├── colored_box_controller.py
         ├── drag_drop_controller.py
         ├── graph_controller.py
         ├── main_controller.py
@@ -54,10 +55,12 @@ pharmalyzer/
             └── analysis_worker.py
     └── services/
         ├── analysis_service.py
+        ├── colored_box_service.py
         ├── data_store.py
         ├── pcr_data_service.py
         ├── pipeline.py
-        └── rdml_service.py
+        ├── rdml_service.py
+        └── regression_plot_service.py
         └── analysis_steps/
             ├── calculate_regration.py
             ├── calculate_without_referance.py
@@ -71,8 +74,12 @@ pharmalyzer/
             └── rdml_reader.py
     └── views/
         └── main_view.py
+        └── plotting/
+            └── pyqtgraph_regression_renderer.py
         └── ui/
             └── ui.py
+        └── widgets/
+            └── regression_graph_view.py
     └── willbedeleted/
         └── config/
             └── config.py
@@ -81,9 +88,6 @@ pharmalyzer/
         └── core/
             └── colored_box_utils.py
         └── handlers/
-            ├── colored_box_handler.py
-            ├── colored_box_handlers.py
-            └── graph_handlers.py
         └── license/
             └── license_functions.py
         └── managers/
@@ -97,11 +101,8 @@ pharmalyzer/
         └── scripts/
             └── pcr_graph_drawer.py
         └── utils/
-            └── rdml_utils.py
             └── file_utils/
-                ├── csv_utils.py
-                ├── output_file.py
-                └── xml_utils.py
+                └── output_file.py
             └── validators/
                 ├── data_Validor.py
                 └── well_validators.py
