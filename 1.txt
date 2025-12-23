@@ -1,1 +1,2 @@
   File "C:\Users\gül\Desktop\SMA_updates\pharmalyzer\app\controllers\main_controller.py", line 73, in handle_drop_result
+

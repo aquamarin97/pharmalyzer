@@ -1,10 +1,10 @@
 # app\controllers\main_controller.py
 from PyQt5.QtCore import Qt
 from app.controllers.export_controller import ExportController
+from app.controllers.well_edit_controller import WellEditController
 from app.services.export.export_options import ExportOptions
 from app.views.main_view import MainView
 from app.models.main_model import MainModel
-from app.willbedeleted.managers.well_manager import WellEditManager
 from app.willbedeleted.scripts.pcr_graph_drawer import GraphDrawer
 from app.controllers.table_controller import AppTableController
 from app.controllers.drag_drop_controller import DragDropController
@@ -138,25 +138,25 @@ class MainController:
     # ---- Table / well managers ----
     def setup_well_managers(self):
         ui = self.view.ui
-        self.referans_kuyu_manager = WellEditManager(
+        self.referans_kuyu_manager = WellEditController(
             line_edit=ui.lineEdit_standart_kuyu,
             default_value="F12",
-            callback=self.model.set_referance_well,  # <-- analyze_button yerine
+            on_change=self.model.set_referance_well,
         )
-        self.homozigot_manager = WellEditManager(
+        self.homozigot_manager = WellEditController(
             line_edit=ui.line_edit_saglikli_kontrol,
             default_value="F12",
-            callback=self.model.colored_box_controller.set_homozigot_line_edit,
+            on_change=self.model.colored_box_controller.set_homozigot_line_edit,
         )
-        self.heterozigot_manager = WellEditManager(
+        self.heterozigot_manager = WellEditController(
             line_edit=ui.line_edit_tasiyici_kontrol,
             default_value="G12",
-            callback=self.model.colored_box_controller.set_heterozigot_line_edit,
+            on_change=self.model.colored_box_controller.set_heterozigot_line_edit,
         )
-        self.ntc_manager = WellEditManager(
+        self.ntc_manager = WellEditController(
             line_edit=ui.line_edit_NTC_kontrol,
             default_value="H12",
-            callback=self.model.colored_box_controller.set_NTC_line_edit,
+            on_change=self.model.colored_box_controller.set_NTC_line_edit,
         )
 
     # ---- Drag & drop / init / reset ----

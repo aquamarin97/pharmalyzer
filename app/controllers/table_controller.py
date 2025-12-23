@@ -1,21 +1,17 @@
 # app\controllers\table_controller.py
 import pandas as pd
 
+from app.constants.table_config import CSV_FILE_HEADERS, DROPDOWN_COLUMN, DROPDOWN_OPTIONS, ITEM_STYLES, ROUND_COLUMNS, TABLE_WIDGET_HEADERS
 from app.controllers.table_interaction_controller import TableInteractionController
 from app.services.data_store import DataStore
 from app.services.pcr_data_service import PCRDataService
-from app.willbedeleted.widgets.table_view_widget import TableViewWidget
-from app.willbedeleted.config.config import (
-    CSV_FILE_HEADERS,
-    DROPDOWN_COLUMN,
-    DROPDOWN_OPTIONS,
-    ROUND_COLUMNS,
-    TABLE_WIDGET_HEADERS,
-)
-from app.willbedeleted.managers.table_manager import TableManager
-from app.willbedeleted.models.drop_down_delegate import DropDownDelegate
-from app.willbedeleted.models.editable_table_model import EditableTableModel
+from app.views.table.editable_table_model import EditableTableModel
 
+from app.views.delegates.drop_down_delegate import DropDownDelegate
+
+from PyQt5.QtGui import QStandardItemModel
+
+from app.views.widgets.table_view_widget import TableViewWidget
 
 class AppTableController:
     """
@@ -44,20 +40,16 @@ class AppTableController:
         ui = self.view.ui
         original_widget = ui.table_widget_resulttable
         ui.table_widget_resulttable = TableViewWidget(original_widget)
-
         ui.verticalLayout_3.replaceWidget(original_widget, ui.table_widget_resulttable)
         original_widget.deleteLater()
 
-        ui.table_widget_resulttable.set_column_expansion_ratios(
-            [2, 2, 2, 10, 5, 2, 2, 2, 3, 3, 3, 3]
-        )
-
-        headers = TABLE_WIDGET_HEADERS
-        manager = TableManager(ui.table_widget_resulttable, headers)
-        manager.create_empty_table()
         self.table_widget = ui.table_widget_resulttable
-        self.table_manager = manager
 
+        empty_model = QStandardItemModel()
+        empty_model.setHorizontalHeaderLabels(TABLE_WIDGET_HEADERS)
+        self.table_widget.setModel(empty_model)
+
+        self.table_widget.set_column_expansion_ratios([2,2,2,10,5,2,2,2,3,3,3,3])        
         self.table_interaction = TableInteractionController(
             table_widget=self.table_widget,
             pcr_data_service=PCRDataService,
@@ -106,19 +98,17 @@ class AppTableController:
         dropdown_column_index = df.columns.get_loc(self.dropdown_column)
 
         self.table_model = EditableTableModel(
+            data=df,
             dropdown_column=dropdown_column_index,
             dropdown_options=self.dropdown_options,
             carrier_range=self.carrier_range,
             uncertain_range=self.uncertain_range,
         )
-        self.table_model._data = df
-        self.table_model.setHorizontalHeaderLabels(list(df.columns))
         self.table_widget.setModel(self.table_model)
 
         dropdown_delegate = DropDownDelegate(
             options=self.dropdown_options,
             parent=self.table_widget,
+            item_styles=ITEM_STYLES,
         )
-        self.table_widget.setItemDelegateForColumn(
-            dropdown_column_index, dropdown_delegate
-        )
+        self.table_widget.setItemDelegateForColumn(dropdown_column_index, dropdown_delegate)
