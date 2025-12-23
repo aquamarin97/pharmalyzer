@@ -1,5 +1,7 @@
 # app\controllers\main_controller.py
 from PyQt5.QtCore import Qt
+from app.controllers.export_controller import ExportController
+from app.services.export.export_options import ExportOptions
 from app.views.main_view import MainView
 from app.models.main_model import MainModel
 from app.willbedeleted.controllers.regression_controller import RegressionGraphViewer
@@ -30,6 +32,7 @@ class MainController:
 
         self.model.analysis_finished.connect(self._on_async_analysis_finished)
         self.model.analysis_error.connect(self.view.show_warning)
+        self.export_controller = ExportController()
 
         # Init components + signals
         self.initialize_components()
@@ -46,8 +49,11 @@ class MainController:
         ui.pushButton_analiz_et.clicked.connect(self._on_analyze_button_click)
         ui.checkBox_istatistik.stateChanged.connect(self._on_checkbox_state_changed)
         ui.pushButton_disaaktar.clicked.connect(
-            lambda: export_table_to_excel_with_path(self.table_controller.table_widget, self.model.state.file_name)
-
+            lambda: self.export_controller.export_table_view(
+                self.table_controller.table_widget,
+                file_name=self.model.state.file_name,
+                options=ExportOptions(fmt="xlsx", preset="full", include_headers=True),
+            )
         )
         ui.pushButton_iceaktar.clicked.connect(self._select_rdml_file)
 
