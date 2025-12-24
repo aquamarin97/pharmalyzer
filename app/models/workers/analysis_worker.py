@@ -1,4 +1,5 @@
 from __future__ import annotations
+import time
 
 import logging
 import traceback
@@ -44,28 +45,22 @@ class AnalysisWorker(QObject):
 
     @pyqtSlot()
     def run(self) -> None:
-        # Prevent re-entrancy
         if self._running:
             return
 
         self._running = True
         self._cancel_requested = False
 
+        t0 = time.perf_counter()
+        logger.info("[PERF] Worker.run started")
+
         try:
             self._progress(1, "Analiz başlatılıyor...")
 
-            # IMPORTANT:
-            # AnalysisService.run must accept these kwargs and must
-            # periodically check is_cancelled() to exit quickly.
             success = self._service.run(
                 progress_cb=self._progress,
                 is_cancelled=self._is_cancelled,
             )
-
-            if self._cancel_requested:
-                # Cancel requested during run: treat as unsuccessful.
-                self.finished.emit(False)
-                return
 
             self._progress(100, "Tamamlandı.")
             self.finished.emit(bool(success))
@@ -77,4 +72,6 @@ class AnalysisWorker(QObject):
             self.finished.emit(False)
 
         finally:
+            t1 = time.perf_counter()
+            logger.info("[PERF] Worker.run total %.0f ms", (t1 - t0) * 1000)
             self._running = False

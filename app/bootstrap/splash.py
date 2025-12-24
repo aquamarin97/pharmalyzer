@@ -1,7 +1,7 @@
 # app/bootstrap/splash.py
 from __future__ import annotations
 
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPainter, QPixmap
 from PyQt5.QtWidgets import QSplashScreen, QApplication
 
@@ -19,8 +19,6 @@ def show_splash() -> QSplashScreen:
     app_name = t(TextKey.APP_NAME)
     brand_name = t(TextKey.BRAND_NAME)
     logo_path = IMAGE_PATHS.APP_LOGO_PNG
-
-    loading_messages = t_list(TextKey.LOADING_MESSAGES) or [t("loading.progress")]
 
     painter = QPainter(canvas)
     painter.setRenderHint(QPainter.Antialiasing)
@@ -49,28 +47,14 @@ def show_splash() -> QSplashScreen:
     splash = QSplashScreen(canvas, Qt.WindowStaysOnTopHint)
     splash.setFont(FONT_STYLES.SPLASH_MESSAGE)
     splash.show()
+
+    # İlk mesaj
+    messages = t_list(TextKey.LOADING_MESSAGES) or [t("loading.progress")]
+    splash.showMessage(
+        f"{messages[0]} %1",
+        alignment=Qt.AlignBottom | Qt.AlignHCenter,
+        color=COLOR_STYLES.PRIMARY_TEXT,
+    )
+
     QApplication.processEvents()
-
-    step_delay_ms = 400
-    total_steps = max(1, len(loading_messages))
-    current_step = 0
-
-    def update_progress() -> None:
-        nonlocal current_step
-        if current_step >= total_steps:
-            return  # Kapatma işini main'deki splash.finish(view) yapsın.
-
-        percent = int((current_step + 1) / total_steps * 100)
-        message = loading_messages[current_step % len(loading_messages)]
-
-        splash.showMessage(
-            f"{message} %{percent}",
-            alignment=Qt.AlignBottom | Qt.AlignHCenter,
-            color=COLOR_STYLES.PRIMARY_TEXT,
-        )
-
-        current_step += 1
-        QTimer.singleShot(step_delay_ms, update_progress)
-
-    update_progress()
     return splash

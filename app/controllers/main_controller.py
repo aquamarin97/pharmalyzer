@@ -1,5 +1,8 @@
 # app/controllers/main_controller.py
 from __future__ import annotations
+import time
+import logging 
+logger = logging.getLogger(__name__)
 
 from PyQt5.QtCore import Qt
 
@@ -34,6 +37,8 @@ class MainController:
         self._wire_view_signals()
 
         self._initialize_components()
+        self._t_analyze_clicked = None
+        self._t_worker_finished = None
 
     # -------------------- Wiring --------------------
     def _wire_view_signals(self) -> None:
@@ -171,6 +176,9 @@ class MainController:
         )
 
     def _on_analyze_requested(self) -> None:
+        self._t_analyze_clicked = time.perf_counter()
+        logger.info("[PERF] Analyze clicked")
+
         self.model.run_analysis()
 
     def _on_stats_toggled(self, checked: bool) -> None:
@@ -205,9 +213,16 @@ class MainController:
         pass
 
     def _on_async_analysis_finished(self, success: bool) -> None:
+        self._t_worker_finished = time.perf_counter()
+        if self._t_analyze_clicked is not None:
+            logger.info("[PERF] Worker finished in %.0f ms", (self._t_worker_finished - self._t_analyze_clicked) * 1000)
+
         if not success:
             self.view.show_warning("Analiz başarısız oldu.")
             return
+
+        # ---- UI update ölçümü ----
+        t0 = time.perf_counter()
 
         # Color calc
         self.model.colored_box_controller.define_box_color()
@@ -219,3 +234,6 @@ class MainController:
         df = DataStore.get_df_copy()
         if self.regression_graph_view is not None:
             self.regression_graph_view.update(df)
+
+        t1 = time.perf_counter()
+        logger.info("[PERF] UI update after analysis took %.0f ms", (t1 - t0) * 1000)

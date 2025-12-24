@@ -1,0 +1,7 @@
+  File "C:\Users\gül\Desktop\SMA_updates\pharmalyzer\app\controllers\main_controller.py", line 73, in handle_drop_result
+
+Traceback (most recent call last):
+  File "C:\Users\Kamil\Desktop\pharmalyzer\app\controllers\well_edit_controller.py", line 38, in eventFilter
+    if ev.key() == ev.key().Backspace:
+                   ^^^^^^^^^^^^^^^^^^
+AttributeError: 'int' object has no attribute 'Backspace'

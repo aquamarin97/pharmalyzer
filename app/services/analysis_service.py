@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable, Optional
-
+import time
+import logging
+logger = logging.getLogger(__name__)
 from app.services.pipeline import Pipeline, Step, CancelledError
 
 from app.services.analysis_steps.calculate_with_referance import CalculateWithReferance
@@ -87,8 +89,21 @@ class AnalysisService:
         ]
 
         try:
+            # Step wrapper: her adımı zamanla
+            timed_steps = []
+            for s in steps:
+                def _wrap(fn, name):
+                    def _inner(df):
+                        t0 = time.perf_counter()
+                        out = fn(df)
+                        t1 = time.perf_counter()
+                        logger.info("[PERF] Step '%s' took %.0f ms", name, (t1 - t0) * 1000)
+                        return out
+                    return _inner
+                timed_steps.append(Step(s.name, _wrap(s.fn, s.name)))
+
             Pipeline.run(
-                steps,
+                timed_steps,
                 progress_cb=progress,
                 is_cancelled=is_cancelled,
                 copy_input_each_step=False,

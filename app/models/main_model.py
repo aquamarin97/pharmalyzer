@@ -23,16 +23,13 @@ class MainState:
 class MainModel(QObject):
     """
     Model: state + servisler + async analiz.
-    UI bilmez.
+    Thread-per-analysis: her analizde yeni QThread + worker.
     """
 
     analysis_busy = pyqtSignal(bool)
     analysis_progress = pyqtSignal(int, str)
     analysis_finished = pyqtSignal(bool)
     analysis_error = pyqtSignal(str)
-
-    _start_analysis = pyqtSignal()
-    _cancel_analysis = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -44,24 +41,9 @@ class MainModel(QObject):
         self.analysis_service = AnalysisService()
         self.data_manager = PCRDataService()
 
-        # --- Thread / Worker ---
-        self._analysis_thread = QThread(self)
-        self._worker = AnalysisWorker(self.analysis_service)
-        self._worker.moveToThread(self._analysis_thread)
-
-        # queued calls
-        self._start_analysis.connect(self._worker.run)
-        self._cancel_analysis.connect(self._worker.cancel)
-
-        # worker -> model
-        self._worker.progress.connect(self.analysis_progress)
-        self._worker.finished.connect(self._on_worker_finished)
-        self._worker.error.connect(self.analysis_error)
-
-        # ❗ SADECE worker silinir, thread deleteLater YOK
-        self._analysis_thread.finished.connect(self._worker.deleteLater)
-
-        self._analysis_thread.start()
+        # Thread-per-analysis state
+        self._analysis_thread: Optional[QThread] = None
+        self._worker: Optional[AnalysisWorker] = None
         self._busy = False
 
     # ---------------- State ----------------
@@ -82,7 +64,7 @@ class MainModel(QObject):
         self.rdml_df = df
         self.state.rdml_path = file_path
 
-    # ---------------- Analysis ----------------
+    # ---------------- Analysis (thread-per-run) ----------------
     def run_analysis(self) -> None:
         if self._busy:
             return
@@ -90,36 +72,88 @@ class MainModel(QObject):
         self._busy = True
         self.analysis_busy.emit(True)
 
-        if not self._analysis_thread.isRunning():
-            self._analysis_thread.start()
-
-        self._start_analysis.emit()
+        self._start_new_analysis_thread()
 
     def cancel_analysis(self) -> None:
-        self._cancel_analysis.emit()
+        # cooperative cancel
+        if self._worker is not None:
+            try:
+                self._worker.cancel()
+            except Exception:
+                pass
+
+    def _start_new_analysis_thread(self) -> None:
+        # Defensive: önce eski kaynaklar varsa temizle
+        self._cleanup_analysis_thread(non_blocking=True)
+
+        thread = QThread(self)
+        worker = AnalysisWorker(self.analysis_service)
+        worker.moveToThread(thread)
+
+        # signals
+        worker.progress.connect(self.analysis_progress)
+        worker.error.connect(self.analysis_error)
+        worker.finished.connect(self._on_worker_finished)
+
+        # thread start -> worker.run (queued)
+        thread.started.connect(worker.run)
+
+        # yaşam döngüsü: thread bitince worker silinsin
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+
+        self._analysis_thread = thread
+        self._worker = worker
+
+        thread.start()
 
     def _on_worker_finished(self, success: bool) -> None:
+        # UI'ye durum bildir (önce)
         self._busy = False
         self.analysis_busy.emit(False)
         self.analysis_finished.emit(bool(success))
 
+        # Thread'i kapat (non-blocking)
+        self._cleanup_analysis_thread(non_blocking=True)
+
+    def _cleanup_analysis_thread(self, *, non_blocking: bool) -> None:
+        """
+        non_blocking=True:
+          - quit çağırır, beklemez (UI donmasın)
+        non_blocking=False:
+          - quit + wait ile kapanışı garanti eder (shutdown için)
+        """
+        thread = self._analysis_thread
+        if thread is None:
+            self._worker = None
+            return
+
+        try:
+            if thread.isRunning():
+                thread.quit()
+                if not non_blocking:
+                    thread.wait(3000)
+        except RuntimeError:
+            # Qt objesi zaten silinmiş olabilir
+            pass
+
+        # referansları bırak
+        self._analysis_thread = None
+        self._worker = None
+
     # ---------------- Shutdown ----------------
     def shutdown(self) -> None:
         """
-        Release-grade güvenli kapanış.
-        QThread deleteLater kullanılmadığı için RuntimeError oluşmaz.
+        Release-grade kapanış:
+        - cancel iste
+        - thread varsa kapanmasını garanti et
         """
         try:
-            self._cancel_analysis.emit()
+            self.cancel_analysis()
         except Exception:
             pass
 
-        try:
-            self._analysis_thread.quit()
-            self._analysis_thread.wait(3000)
-        except RuntimeError:
-            # Thread objesi zaten Qt tarafından silinmişse sessiz geç
-            pass
+        self._cleanup_analysis_thread(non_blocking=False)
 
     # ---------------- Config passthrough ----------------
     def set_checkbox_status(self, v: bool) -> None:
