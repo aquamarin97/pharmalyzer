@@ -91,9 +91,6 @@ class Translator:
 
     @classmethod
     def t_list(cls, key: str) -> List[str]:
-        """
-        Liste çeviri (loading.messages gibi).
-        """
         current = cls._get_bundle(cls._current_lang)
         fallback = cls._get_bundle(cls._fallback_lang)
 
@@ -101,4 +98,8 @@ class Translator:
         if value is None:
             value = cls._resolve(fallback, key)
 
-        return value if isinstance(value, list) else []
+        if not isinstance(value, list):
+            return []
+
+        # sadece string olanları al
+        return [x for x in value if isinstance(x, str)]

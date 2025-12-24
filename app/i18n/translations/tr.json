@@ -42,5 +42,60 @@
     },
     "filters": {
         "license_files": "Lisans Dosyaları (*.key)"
+    },
+
+      "plots": {
+    "regression": {
+      "title": "Regresyon",
+      "axis": {
+        "x": "fam_end_rfu",
+        "y": "hex_end_rfu"
+      },
+      "legend": {
+        "safe": "Güvenli Bölge",
+        "outlier": "Riskli Alan",
+        "fit": "Regresyon Doğrusu"
+      },
+      "hover": {
+        "fmt": "Hasta No: {patient_no}\nX: {x}\nY: {y}\nDurum: {status}"
+      },
+      "errors": {
+        "no_data": "Regresyon grafiği için veri yok."
+      }
     }
+  },
+    "dragdrop": {
+    "ready": "Hazır: {file_name}",
+    "errors": {
+      "invalid_file": "Geçersiz dosya.",
+      "single_file_only": "Lütfen yalnızca bir dosya bırakın.",
+      "invalid_path": "Dosya yolu geçersiz.",
+      "extension": "Sadece .rdml dosyalarına izin veriliyor.",
+      "not_found": "Dosya bulunamadı.",
+      "validation_failed": "Dosya doğrulama sırasında hata oluştu."
+    }
+  },
+    "regression": {
+    "plot": {
+      "regression_line": "Regresyon Doğrusu",
+      "legend": {
+        "healthy": "Sağlıklı",
+        "carrier": "Taşıyıcı",
+        "uncertain": "Belirsiz"
+      },
+      "hover": {
+        "well_no": "Kuyu No: {well}"
+      }
+    }
+  },
+    "columns": {
+    "well_no": "Kuyu No",
+    "warning": "Uyarı",
+    "stat_ratio": "İstatistik Oranı",
+    "std_ratio": "Standart Oranı"
+  },
+  "warnings": {
+    "insufficient_dna": "Yetersiz DNA"
+  }
+
 }

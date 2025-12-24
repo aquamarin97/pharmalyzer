@@ -1,8 +1,8 @@
-# app\services\regression_plot_service.py
+# app/services/regression_plot_service.py
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import List
 
 import numpy as np
 import pandas as pd
@@ -40,76 +40,95 @@ class RegressionPlotData:
 class RegressionPlotService:
     """
     df -> regression çizim datası üretir.
-    PyQtGraph yok.
+    PyQtGraph bağımlılığı yoktur.
     """
 
     REQUIRED = ["hex_end_rfu", "fam_end_rfu", "Kuyu No", "Nihai Sonuç", "Regresyon"]
     ALLOWED_CLASSES = ["Sağlıklı", "Taşıyıcı", "Belirsiz"]
 
+    # legacy ile uyum (CalculateRegration içindeki 2.2*sigma bandı)
+    BAND_SIGMA = 2.2
+
     @staticmethod
     def build(df: pd.DataFrame) -> RegressionPlotData:
         RegressionPlotService._validate(df)
 
-        work = df.copy()
+        # Sadece ihtiyaç duyulan kolonlarla çalış (kopya hafif olsun)
+        work = df.loc[:, RegressionPlotService.REQUIRED].copy()
+
+        # numeric kolonları güvenli şekilde sayısala çevir
+        work["fam_end_rfu"] = pd.to_numeric(work["fam_end_rfu"], errors="coerce")
+        work["hex_end_rfu"] = pd.to_numeric(work["hex_end_rfu"], errors="coerce")
+
+        # zorunlu alanlar
         work.dropna(subset=["hex_end_rfu", "fam_end_rfu", "Kuyu No", "Nihai Sonuç"], inplace=True)
 
+        # çizimde gösterilecek sınıflar
         mask = work["Nihai Sonuç"].isin(RegressionPlotService.ALLOWED_CLASSES)
 
-        # Model "Güvenli Bölge" satırlarıyla fit oluyor (legacy preprocess)
+        # Model sadece "Güvenli Bölge" satırları ile fit olur (legacy preprocess)
         train = work.loc[mask].copy()
-        train = train[train["Regresyon"] == "Güvenli Bölge"].copy()
+        train = train.loc[train["Regresyon"] == "Güvenli Bölge"].copy()
+
+        empty = np.array([], dtype=float)
 
         if train.empty:
-            # hiç safe yoksa: boş data döndürmek daha iyi
-            empty = np.array([], dtype=float)
             return RegressionPlotData(
                 safe_band=SafeBand(empty, empty, empty),
                 reg_line=RegressionLine(empty, empty),
                 series=[],
             )
 
-        fam_train = pd.to_numeric(train["fam_end_rfu"], errors="coerce").astype(float).to_numpy()
-        hex_train = pd.to_numeric(train["hex_end_rfu"], errors="coerce").astype(float).to_numpy()
+        fam_train = train["fam_end_rfu"].astype(float).to_numpy()
+        hex_train = train["hex_end_rfu"].astype(float).to_numpy()
 
-        X = fam_train.reshape(-1, 1)
-        y = hex_train
+        X_train = fam_train.reshape(-1, 1)
+        y_train = hex_train
 
         lr = LinearRegression()
-        lr.fit(X, y)
+        lr.fit(X_train, y_train)
 
-        # çizimde kullanılacak tüm noktalar
+        # çizimde kullanılacak tüm noktalar (allowed class)
         fam_all = work.loc[mask, "fam_end_rfu"].astype(float).to_numpy()
         hex_all = work.loc[mask, "hex_end_rfu"].astype(float).to_numpy()
         wells_all = work.loc[mask, "Kuyu No"].astype(str).to_numpy()
         sonuc_all = work.loc[mask, "Nihai Sonuç"].astype(str).to_numpy()
 
-        # pred ve safe band sigma (train residuals)
-        y_pred_train = lr.predict(X)
-        residuals = y - y_pred_train
-        sigma = float(np.std(residuals)) if len(residuals) else 0.0
+        if fam_all.size == 0:
+            return RegressionPlotData(
+                safe_band=SafeBand(empty, empty, empty),
+                reg_line=RegressionLine(empty, empty),
+                series=[],
+            )
 
-        x_all = fam_all.reshape(-1, 1)
-        y_pred_all = lr.predict(x_all)
+        # sigma (train residuals)
+        y_pred_train = lr.predict(X_train)
+        residuals = y_train - y_pred_train
+        sigma = float(np.std(residuals)) if residuals.size else 0.0
 
-        safe_upper = y_pred_all + 2.2 * sigma
-        safe_lower = y_pred_all - 2.2 * sigma
+        X_all = fam_all.reshape(-1, 1)
+        y_pred_all = lr.predict(X_all)
+
+        band = RegressionPlotService.BAND_SIGMA * sigma
+        safe_upper = y_pred_all + band
+        safe_lower = y_pred_all - band
 
         sort_idx = np.argsort(fam_all)
         xf = fam_all[sort_idx]
 
-        safe_band = SafeBand(
+        safe_band_obj = SafeBand(
             x_sorted=xf,
             upper=safe_upper[sort_idx],
             lower=safe_lower[sort_idx],
         )
-        reg_line = RegressionLine(
+        reg_line_obj = RegressionLine(
             x_sorted=xf,
             y_pred_sorted=y_pred_all[sort_idx],
         )
 
-        # series'ler
+        # series (legend/renk için label)
         series: List[ScatterSeries] = []
-        for label in ["Sağlıklı", "Taşıyıcı", "Belirsiz"]:
+        for label in RegressionPlotService.ALLOWED_CLASSES:
             idx = (sonuc_all == label)
             if not np.any(idx):
                 continue
@@ -123,8 +142,8 @@ class RegressionPlotService:
             )
 
         return RegressionPlotData(
-            safe_band=safe_band,
-            reg_line=reg_line,
+            safe_band=safe_band_obj,
+            reg_line=reg_line_obj,
             series=series,
         )
 
