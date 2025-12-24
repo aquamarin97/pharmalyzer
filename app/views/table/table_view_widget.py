@@ -1,3 +1,5 @@
+# app\views\table\table_view_widget.py
+# app\views\widgets\table_view_widget.py
 # app/views/widgets/table_view_widget.py
 from PyQt5.QtCore import QEvent, Qt, QTimer
 from PyQt5.QtWidgets import QTableView

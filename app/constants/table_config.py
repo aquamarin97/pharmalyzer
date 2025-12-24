@@ -1,3 +1,4 @@
+# app\constants\table_config.py
 # app/constants/table_config.py
 from PyQt5.QtGui import QColor
 

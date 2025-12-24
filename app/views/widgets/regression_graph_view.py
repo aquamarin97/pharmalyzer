@@ -1,12 +1,13 @@
+# app\views\widgets\regression_graph_view.py
 from __future__ import annotations
 
+from app.views.plotting.pyqtgraph_regression_renderer import PyqtgraphRegressionRenderer
 import pyqtgraph as pg
 from PyQt5.QtWidgets import QVBoxLayout, QSizePolicy
 
 import pandas as pd
 
 from app.services.regression_plot_service import RegressionPlotService
-from app.views.renderers.pyqtgraph_regression_renderer import PyqtgraphRegressionRenderer
 
 
 class RegressionGraphView:

@@ -1,12 +1,11 @@
 # app\models\main_model.py
 from dataclasses import dataclass
 import pandas as pd
-from app.controllers.colored_box_controller import ColoredBoxController
+from app.controllers.analysis.colored_box_controller import ColoredBoxController
 from app.services.analysis_service import AnalysisService
 from app.services.rdml_service import RDMLService
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 
-from app.willbedeleted.scripts.pcr_graph_drawer import GraphDrawer
 from app.services.data_store import DataStore
 
 from app.models.workers.analysis_worker import AnalysisWorker
@@ -40,8 +39,6 @@ class MainModel(QObject):
         self.analysis_service = AnalysisService()
         self.data_manager = PCRDataService()
 
-        # Grafik bileşenleri (container'lar controller/view tarafında bağlanıyor)
-        self.graph_drawer: GraphDrawer | None = None
 
         # --- Async analysis altyapısı ---
         self._analysis_thread = QThread(

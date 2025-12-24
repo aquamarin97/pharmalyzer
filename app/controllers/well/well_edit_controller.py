@@ -1,3 +1,5 @@
+# app\controllers\well\well_edit_controller.py
+# app\controllers\well_edit_controller.py
 # app/controllers/well_edit_controller.py  (veya app/utils/qt/well_edit_manager.py)
 from PyQt5.QtCore import QObject, pyqtSignal, QSignalBlocker
 from PyQt5.QtWidgets import QLineEdit

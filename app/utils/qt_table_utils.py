@@ -1,3 +1,4 @@
+# app\utils\qt_table_utils.py
 # app/utils/qt_table_utils.py
 
 from __future__ import annotations

@@ -1,15 +1,15 @@
 # app\controllers\main_controller.py
 from PyQt5.QtCore import Qt
-from app.controllers.export_controller import ExportController
-from app.controllers.well_edit_controller import WellEditController
+from app.controllers.app.export_controller import ExportController
+from app.controllers.well.well_edit_controller import WellEditController
 from app.services.export.export_options import ExportOptions
 from app.views.main_view import MainView
 from app.models.main_model import MainModel
-from app.willbedeleted.scripts.pcr_graph_drawer import GraphDrawer
-from app.controllers.table_controller import AppTableController
-from app.controllers.drag_drop_controller import DragDropController
+from app.controllers.table.table_controller import AppTableController
+from app.controllers.app.drag_drop_controller import DragDropController
 from app.views.widgets.regression_graph_view import RegressionGraphView
 from app.services.data_store import DataStore
+from app.views.widgets.pcr_graph_view import PCRGraphView
 
 
 class MainController:
@@ -20,7 +20,7 @@ class MainController:
         # RegressionGraphViewer view container istediği için burada bağla
         self.regression_graph_view = RegressionGraphView(self.view.ui.regration_container)
 
-
+        self.graph_drawer = None
         # GraphDrawer init
         self._initialize_graphics()
 
@@ -28,7 +28,6 @@ class MainController:
         self.model.colored_box_controller.calculationCompleted.connect(
             self.view.update_colored_box_widgets
         )
-
         self.model.analysis_finished.connect(self._on_async_analysis_finished)
         self.model.analysis_error.connect(self.view.show_warning)
         self.export_controller = ExportController()
@@ -173,7 +172,7 @@ class MainController:
         self.table_controller = AppTableController(
             view=self.view,
             model=self.model,
-            graph_controller=None  # şu an kullanılmıyorysa
+            graph_drawer=self.graph_drawer,  # <-- kritik kısım
         )
         self.setup_well_managers()
 
@@ -185,13 +184,13 @@ class MainController:
     # ---- Graphics ----
     def _initialize_graphics(self):
         # Eski GraphDrawer'ı kaldır
-        if self.model.graph_drawer is not None:
-            self.model.graph_drawer.deleteLater()
-            self.model.graph_drawer = None
+        if self.graph_drawer is not None:
+            self.graph_drawer.deleteLater()
+            self.graph_drawer = None
 
         layout = self.view.ensure_graph_drawer()
-        self.model.graph_drawer = GraphDrawer(parent=self.view.ui.PCR_graph_container)
-        layout.addWidget(self.model.graph_drawer)
+        self.graph_drawer = PCRGraphView(parent=self.view.ui.PCR_graph_container)
+        layout.addWidget(self.graph_drawer)
 
     def reset_regression_graph(self):
         self.regression_graph_view.reset()

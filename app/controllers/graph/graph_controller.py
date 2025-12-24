@@ -1,3 +1,5 @@
+# app\controllers\graph\graph_controller.py
+# app\controllers\graph_controller.py
 # # app\controllers\graph_controller.py
 # from app.willbedeleted.controllers.regression_controller import RegressionGraphViewer
 # from app.willbedeleted.scripts.pcr_graph_drawer import GraphDrawer

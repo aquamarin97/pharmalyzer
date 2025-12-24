@@ -1,43 +1,61 @@
+# app\controllers\table\table_controller.py
 # app\controllers\table_controller.py
+# app/controllers/table_controller.py
 import pandas as pd
-
-from app.constants.table_config import CSV_FILE_HEADERS, DROPDOWN_COLUMN, DROPDOWN_OPTIONS, ITEM_STYLES, ROUND_COLUMNS, TABLE_WIDGET_HEADERS
-from app.controllers.table_interaction_controller import TableInteractionController
-from app.services.data_store import DataStore
-from app.services.pcr_data_service import PCRDataService
-from app.views.table.editable_table_model import EditableTableModel
-
-from app.views.delegates.drop_down_delegate import DropDownDelegate
 
 from PyQt5.QtGui import QStandardItemModel
 
-from app.views.widgets.table_view_widget import TableViewWidget
+from app.constants.table_config import (
+    CSV_FILE_HEADERS,
+    DROPDOWN_COLUMN,
+    DROPDOWN_OPTIONS,
+    ITEM_STYLES,
+    ROUND_COLUMNS,
+    TABLE_WIDGET_HEADERS,
+)
+from app.controllers.table.table_interaction_controller import TableInteractionController
+from app.services.data_store import DataStore
+from app.services.pcr_data_service import PCRDataService
+from app.views.table.editable_table_model import EditableTableModel
+from app.views.table.drop_down_delegate import DropDownDelegate
+from app.views.table.table_view_widget import TableViewWidget
+
 
 class AppTableController:
     """
-    UI table widget kurulumu + legacy TableController ile csv yükleme + handler bağlama.
-    Uygulama içi tablo kurulumunu, veri yüklemeyi ve handler bağlantısını yönetir.
+    - UI table widget kurulumu
+    - DataStore'dan DF alıp EditableTableModel'e basma
+    - TableInteractionController ile tıklama/enter etkileşimlerini bağlama
+
+    CMV notu:
+    - graph_drawer UI bileşeni olduğu için Model'de tutulmaz.
+    - graph_drawer referansını Controller alır ve InteractionController'a verir.
     """
-    def __init__(self, view, model, graph_controller):
+
+    def __init__(self, view, model, graph_drawer=None):
         self.view = view
         self.model = model
-        self.graph = graph_controller
+
+        # UI bağımlılığı: grafik view referansı (Model'den okunmaz)
+        self.graph_drawer = graph_drawer
 
         self.dropdown_column = DROPDOWN_COLUMN
         self.dropdown_options = DROPDOWN_OPTIONS
         self.round_columns = ROUND_COLUMNS
+
         self.carrier_range = 0.5999
         self.uncertain_range = 0.6199
 
         self.table_widget = None
-        self.table_manager = None
         self.table_model = None
-        self.table_handler = None
+        self.table_interaction = None
 
         self.setup_table_in_main_window()
 
     def setup_table_in_main_window(self):
         ui = self.view.ui
+
+        # Replace designer widget with our custom TableViewWidget
         original_widget = ui.table_widget_resulttable
         ui.table_widget_resulttable = TableViewWidget(original_widget)
         ui.verticalLayout_3.replaceWidget(original_widget, ui.table_widget_resulttable)
@@ -45,28 +63,31 @@ class AppTableController:
 
         self.table_widget = ui.table_widget_resulttable
 
+        # Empty model initially (headers only)
         empty_model = QStandardItemModel()
         empty_model.setHorizontalHeaderLabels(TABLE_WIDGET_HEADERS)
         self.table_widget.setModel(empty_model)
 
-        self.table_widget.set_column_expansion_ratios([2,2,2,10,5,2,2,2,3,3,3,3])        
+        # Column width ratios (must match column count)
+        self.table_widget.set_column_expansion_ratios([2, 2, 2, 10, 5, 2, 2, 2, 3, 3, 3, 3])
+
+        # Interaction controller (table click/enter -> PCR graph draw)
         self.table_interaction = TableInteractionController(
             table_widget=self.table_widget,
-            pcr_data_service=PCRDataService,
-            graph_drawer=self.model.graph_drawer
+            pcr_data_service=PCRDataService(),  # instance önerilir
+            graph_drawer=self.graph_drawer,
         )
-
 
     # range setters (analysis spinbox kullanıyor)
     def set_carrier_range(self, val: float):
-        self.carrier_range = val
+        self.carrier_range = float(val)
         if isinstance(self.table_model, EditableTableModel):
-            self.table_model.carrier_range = val
+            self.table_model.carrier_range = self.carrier_range
 
     def set_uncertain_range(self, val: float):
-        self.uncertain_range = val
+        self.uncertain_range = float(val)
         if isinstance(self.table_model, EditableTableModel):
-            self.table_model.uncertain_range = val
+            self.table_model.uncertain_range = self.uncertain_range
 
     def load_csv_to_table(self):
         df = DataStore.get_df_copy()
@@ -81,9 +102,7 @@ class AppTableController:
         """Belirli sütunları yuvarlar."""
         for col, digits in self.round_columns.items():
             if col in df.columns:
-                df[col] = df[col].apply(
-                    lambda x: round(x, digits) if pd.notna(x) else x
-                )
+                df[col] = df[col].apply(lambda x: round(x, digits) if pd.notna(x) else x)
         return df
 
     def _filter_columns(self, df):

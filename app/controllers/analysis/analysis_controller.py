@@ -1,3 +1,4 @@
+# app\controllers\analysis\analysis_controller.py
 # app\controllers\analysis_controller.py
 from PyQt5.QtCore import Qt
 

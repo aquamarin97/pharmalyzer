@@ -2,6 +2,7 @@ pharmalyzer/
 ├── .gitignore
 ├── 1.txt
 ├── 15.01.2025_SMA_6871 plate_1.rdml
+├── 24.12.2025-SMA-BONCUK 1 pureprep96 protokol -1.rdml
 ├── a.txt
 ├── folders.py
 ├── git_commends.txt
@@ -22,22 +23,27 @@ pharmalyzer/
         ├── app_styles.py
         ├── app_text_key.py
         ├── asset_paths.py
-        └── export_presets.py
+        ├── export_presets.py
+        └── table_config.py
     └── controllers/
-        ├── analysis_controller.py
-        ├── colored_box_controller.py
-        ├── drag_drop_controller.py
-        ├── export_controller.py
-        ├── graph_controller.py
-        ├── main_controller.py
-        ├── table_controller.py
-        ├── table_interaction_controller.py
-        └── well_controller.py
+        └── main_controller.py
+        └── analysis/
+            ├── analysis_controller.py
+            └── colored_box_controller.py
+        └── app/
+            ├── drag_drop_controller.py
+            └── export_controller.py
+        └── graph/
+            └── graph_controller.py
+        └── table/
+            ├── table_controller.py
+            └── table_interaction_controller.py
+        └── well/
+            └── well_edit_controller.py
     └── exceptions/
         ├── base.py
         ├── handler.py
-        ├── types.py
-        └── __init__.py
+        └── types.py
     └── i18n/
         ├── loader.py
         └── __init__.py
@@ -81,33 +87,22 @@ pharmalyzer/
         └── rdml/
             ├── rdml_parser.py
             └── rdml_reader.py
+        └── validators/
+            ├── data_Validor.py
+            └── well_validators.py
     └── views/
         └── main_view.py
         └── plotting/
             └── pyqtgraph_regression_renderer.py
-        └── renderers/
-            └── pyqtgraph_regression_renderer.py
+        └── table/
+            ├── drop_down_delegate.py
+            ├── editable_table_model.py
+            └── table_view_widget.py
         └── ui/
             └── ui.py
         └── widgets/
+            ├── pcr_graph_view.py
             └── regression_graph_view.py
-    └── willbedeleted/
-        └── config/
-            └── config.py
-        └── managers/
-            ├── table_manager.py
-            └── well_manager.py
-        └── models/
-            ├── drop_down_delegate.py
-            └── editable_table_model.py
-        └── scripts/
-            └── pcr_graph_drawer.py
-        └── utils/
-            └── validators/
-                ├── data_Validor.py
-                └── well_validators.py
-        └── widgets/
-            └── table_view_widget.py
 └── assets/
     ├── a.txt
     ├── appicon.ico

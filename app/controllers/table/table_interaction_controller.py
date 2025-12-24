@@ -1,3 +1,4 @@
+# app\controllers\table\table_interaction_controller.py
 # app\controllers\table_interaction_controller.py
 from PyQt5.QtCore import QObject, Qt, QEvent
 from PyQt5.QtGui import QKeyEvent

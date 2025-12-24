@@ -1,2 +1,15 @@
   File "C:\Users\gül\Desktop\SMA_updates\pharmalyzer\app\controllers\main_controller.py", line 73, in handle_drop_result
 
+Traceback (most recent call last):
+  File "C:\Users\gül\Desktop\SMA_updates\pharmalyzer\main.py", line 48, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\gül\Desktop\SMA_updates\pharmalyzer\main.py", line 37, in main
+    controller = MainController(view, model)
+  File "C:\Users\gül\Desktop\SMA_updates\pharmalyzer\app\controllers\main_controller.py", line 25, in __init__
+    self._initialize_graphics()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\gül\Desktop\SMA_updates\pharmalyzer\app\controllers\main_controller.py", line 188, in _initialize_graphics
+    if self.model.graph_drawer is not None:
+       ^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'MainModel' object has no attribute 'graph_drawer'

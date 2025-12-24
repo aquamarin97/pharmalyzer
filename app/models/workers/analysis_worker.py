@@ -1,3 +1,4 @@
+# app\models\workers\analysis_worker.py
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
 

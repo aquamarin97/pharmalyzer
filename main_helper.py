@@ -3,6 +3,5 @@ from tapphelper import TAppHelper
 
 if __name__ == "__main__":
 
-    TAppHelper.export_folder_tree()
-    
+    TAppHelper.export_folder_tree()    
     
