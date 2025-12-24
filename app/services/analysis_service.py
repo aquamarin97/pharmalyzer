@@ -1,14 +1,18 @@
-# app\services\analysis_service.py
-# app/services/analysis_service.py
+from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable, Optional
 
-from app.services.pipeline import Pipeline
+from app.services.pipeline import Pipeline, Step, CancelledError
+
 from app.services.analysis_steps.calculate_with_referance import CalculateWithReferance
 from app.services.analysis_steps.calculate_regration import CalculateRegration
 from app.services.analysis_steps.calculate_without_referance import CalculateWithoutReferance
 from app.services.analysis_steps.configurate_result_csv import ConfigurateResultCSV
 from app.services.analysis_steps.csv_processor import CSVProcessor
+
+ProgressCb = Callable[[int, str], None]
+IsCancelled = Callable[[], bool]
 
 
 @dataclass
@@ -20,54 +24,81 @@ class AnalysisConfig:
 
 
 class AnalysisService:
-    def __init__(self, config: AnalysisConfig | None = None):
+    def __init__(self, config: Optional[AnalysisConfig] = None):
         self.config = config or AnalysisConfig()
+        self._cancelled = False
 
-    def set_referance_well(self, v: str):
-        self.config.referance_well = v
+    def cancel(self) -> None:
+        self._cancelled = True
 
-    def set_checkbox_status(self, v: bool):
-        self.config.checkbox_status = v
+    def _is_cancelled(self) -> bool:
+        return self._cancelled
 
-    def set_carrier_range(self, v: float):
+    def set_referance_well(self, v: str) -> None:
+        self.config.referance_well = str(v)
+
+    def set_checkbox_status(self, v: bool) -> None:
+        self.config.checkbox_status = bool(v)
+
+    def set_carrier_range(self, v: float) -> None:
         v = float(v)
         if v >= float(self.config.uncertain_range):
             raise ValueError("Taşıyıcı aralığı belirsiz aralığından düşük olmalıdır.")
         self.config.carrier_range = v
 
-    def set_uncertain_range(self, v: float):
+    def set_uncertain_range(self, v: float) -> None:
         v = float(v)
         if v <= float(self.config.carrier_range):
             raise ValueError("Belirsiz aralığı taşıyıcı aralığından yüksek olmalıdır.")
         self.config.uncertain_range = v
 
-    def run(self) -> bool:
-        """
-        Pipeline'ı çalıştırır. DataStore üzerinde çalıştığı varsayımıyla True/False döner.
-        """
+    def run(
+        self,
+        progress_cb: Optional[ProgressCb] = None,
+        is_cancelled: Optional[IsCancelled] = None,
+    ) -> bool:
+        # Her run başlangıcında cancel flag sıfırla
+        self._cancelled = False
+        is_cancelled = is_cancelled or self._is_cancelled
+
+        def progress(p: int, msg: str) -> None:
+            if progress_cb:
+                progress_cb(int(p), str(msg))
+
+        # Step instance'ları
+        ref_step = CalculateWithReferance(
+            self.config.referance_well,
+            self.config.carrier_range,
+            self.config.uncertain_range,
+        )
+        reg_step = CalculateRegration()
+        sw_step = CalculateWithoutReferance(
+            carrier_range=self.config.carrier_range,
+            uncertain_range=self.config.uncertain_range,
+        )
+        post_step = ConfigurateResultCSV(self.config.checkbox_status)
+
+        steps = [
+            Step("CSV hazırlama", CSVProcessor.process),
+            Step("Referanslı hesaplama", ref_step.process),
+            Step("Regresyon", reg_step.process),
+            Step("Referanssız hesaplama", sw_step.process),
+            Step("Sonuç CSV formatlama", post_step.process),
+        ]
+
         try:
-            ref_step = CalculateWithReferance(
-                self.config.referance_well,
-                self.config.carrier_range,
-                self.config.uncertain_range,
+            Pipeline.run(
+                steps,
+                progress_cb=progress,
+                is_cancelled=is_cancelled,
+                copy_input_each_step=False,
             )
-            reg_step = CalculateRegration()
-            sw_step = CalculateWithoutReferance()
-            post_step = ConfigurateResultCSV(self.config.checkbox_status)
-
-            Pipeline.run([
-                CSVProcessor.process,
-                ref_step.process,
-                reg_step.process,
-                sw_step.process,
-                post_step.process,
-            ])
-
-            # referans kuyusu boşsa checkbox zorla True
-            if not ref_step.last_success:
-                self.config.checkbox_status = True
-
-            return True
-        except Exception as e:
-            print(f"[AnalysisService] hata: {e}")
+        except CancelledError:
+            # Cancel bir hata değil → False dön
             return False
+
+        # referans kuyusu başarısızsa checkbox zorla True
+        if not getattr(ref_step, "last_success", True):
+            self.config.checkbox_status = True
+
+        return True

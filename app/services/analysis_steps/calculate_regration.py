@@ -1,8 +1,13 @@
-# app\services\analysis_steps\calculate_regration.py
+# app/services/analysis_steps/calculate_regration.py
+from __future__ import annotations
 
+import logging
 import numpy as np
-from sklearn.linear_model import LinearRegression
 import pandas as pd
+from sklearn.linear_model import LinearRegression
+
+logger = logging.getLogger(__name__)
+
 
 class CalculateRegration:
     def __init__(self):
@@ -14,108 +19,67 @@ class CalculateRegration:
         if df.empty:
             raise ValueError("İşlenecek veri bulunamadı.")
 
-        self.df = df.copy(deep=True)
+        # Pipeline kontratı: df üzerinde in-place oynamak istemiyorsak burada kopyalarız
+        self.df = df.copy(deep=False)
         self.calculate_regration()
-        print("<<< REGRESYON ADIMI TAMAMLANDI >>>")
+        logger.info("Regresyon adımı tamamlandı.")
         return self.df
-    
-    def calculate_regration(self):
-        """Regresyon hesaplamalarını yapar ve sonuçları kaydeder."""
+
+    def calculate_regration(self) -> None:
         if self.df is None:
-            raise ValueError("CSV dosyası okunmadı. Lütfen önce read_csv() çağırın.")
+            raise ValueError("DataFrame yok.")
 
-        # Gerekli sütunları kontrol et
-        required_columns = ["fam_end_rfu", "hex_end_rfu"]
-        for column in required_columns:
-            if column not in self.df.columns:
-                raise ValueError(f"{column} sütunu eksik.")
+        required_columns = ["fam_end_rfu", "hex_end_rfu", "HEX Ct"]
+        missing = [c for c in required_columns if c not in self.df.columns]
+        if missing:
+            raise ValueError(f"Eksik sütun(lar): {', '.join(missing)}")
 
-        # Boş değerleri atan satırları filtrele
         filtered_df = self.df.dropna(subset=["fam_end_rfu", "hex_end_rfu", "HEX Ct"])
-
         if filtered_df.empty:
             raise ValueError("Gerekli sütunlarda işlem yapılacak veri yok.")
 
-        # Iteratif regresyon ve aykırı değer temizleme
-        print("\n<<< REGRESYON ADIMI >>>")
-        print(f"Regresyon modeli için filtrelenmiş veri sayısı: {len(filtered_df)}")
-        if len(filtered_df)>50:
-            print("Seçilen yöntem: İterative Regresyon")
-            model, clean_df = self.iterative_regression(
-                filtered_df, "fam_end_rfu", "hex_end_rfu"
-            )
+        logger.debug("Regresyon için filtrelenmiş satır: %d", len(filtered_df))
+
+        if len(filtered_df) > 50:
+            model, clean_df = self.iterative_regression(filtered_df, "fam_end_rfu", "hex_end_rfu")
         else:
-            print("Seçilen Yöntem: Mad Based Regresyon")
-            model, clean_df = self.mad_based_regression(
-                filtered_df, "fam_end_rfu", "hex_end_rfu"
-            )
-        # Safe zone kontrolü
-        self.df["Regresyon"] = "Riskli Alan"  # Varsayılan değer
+            model, clean_df = self.mad_based_regression(filtered_df, "fam_end_rfu", "hex_end_rfu")
+
+        # Varsayılan: riskli
+        self.df["Regresyon"] = "Riskli Alan"
         self.df.loc[clean_df.index, "Regresyon"] = "Güvenli Bölge"
-        # "Uyarı" sütunundaki koşullara göre "Regresyon" sütununu güncelle
-        self.df.loc[
-            self.df["Uyarı"].isin(["Yetersiz DNA", "Boş Kuyu"]), "Regresyon"
-        ] = "-"
 
-    def iterative_regression(self, df, x_col, y_col, threshold=2.0, max_iter=10):
-        """
-        Iterative outlier removal using Linear Regression.
+        # Uyarı durumlarında regresyon "-"
+        if "Uyarı" in self.df.columns:
+            self.df.loc[self.df["Uyarı"].isin(["Yetersiz DNA", "Boş Kuyu"]), "Regresyon"] = "-"
 
-        Parameters:
-        df: DataFrame - Veri çerçevesi
-        x_col: str - Bağımsız değişken sütunu
-        y_col: str - Bağımlı değişken sütunu
-        threshold: float - Aykırı değer sınırı (sigma cinsinden)
-        max_iter: int - Maksimum iterasyon sayısı
-
-        Returns:
-        model: LinearRegression - Eğitilmiş regresyon modeli
-        filtered_df: DataFrame - Aykırı değerlerden arındırılmış veri çerçevesi
-        """
+    def iterative_regression(self, df: pd.DataFrame, x_col: str, y_col: str, threshold: float = 2.0, max_iter: int = 10):
         filtered_df = df.copy()
-        for i in range(max_iter):
-            # X ve Y verilerini al
+        model = LinearRegression()
+
+        for _ in range(max_iter):
             X = filtered_df[x_col].values.reshape(-1, 1)
             y = filtered_df[y_col].values
 
-            # Lineer regresyon modeli
-            model = LinearRegression()
             model.fit(X, y)
             y_pred = model.predict(X)
 
-            # Rezidüler (sapmalar) hesapla
             residuals = y - y_pred
-            sigma = np.std(residuals)
+            sigma = float(np.std(residuals))
 
-            # Aykırı değerleri tespit et
+            # (Mevcut yaklaşımı koruyarak) maske
             mask_upper = np.abs(residuals) <= (threshold + 10) + 2.2 * sigma
             mask_lower = np.abs(residuals) >= (threshold) - 2.2 * sigma
             mask = mask_upper & mask_lower
 
-            # Aykırı olmayan verileri filtrele
             new_filtered_df = filtered_df[mask]
-
-            # Eğer veri değişmezse iterasyonu sonlandır
             if new_filtered_df.shape[0] == filtered_df.shape[0]:
                 break
-
             filtered_df = new_filtered_df
 
         return model, filtered_df
 
-    def mad_based_regression(self, df, x_col, y_col, threshold=3.5):
-        """
-        MAD (Median Absolute Deviation) tabanlı aykırı değer temizleme.
-
-        Parameters:
-        df: DataFrame
-        x_col, y_col: str
-        threshold: float - MAD çarpanı
-
-        Returns:
-        model: LinearRegression
-        filtered_df: Aykırılardan arındırılmış veri
-        """
+    def mad_based_regression(self, df: pd.DataFrame, x_col: str, y_col: str, threshold: float = 3.5):
         filtered_df = df.copy()
         if filtered_df.empty:
             return LinearRegression(), filtered_df
@@ -128,22 +92,20 @@ class CalculateRegration:
         y_pred = model.predict(X)
 
         residuals = y - y_pred
-        median = np.median(residuals)
+        median = float(np.median(residuals))
         abs_deviation = np.abs(residuals - median)
-        mad = np.median(abs_deviation)
+        mad = float(np.median(abs_deviation))
 
         if mad == 0:
-            print("⚠️ MAD = 0, tüm veriler aynı. Temizleme yapılmadan geri dönülüyor.")
+            logger.debug("MAD=0, temizleme yapılmadan dönülüyor.")
             return model, filtered_df
 
-        # Modified Z-score yöntemi (robust aykırı tespiti)
         modified_z_scores = 0.6745 * (residuals - median) / mad
         mask = np.abs(modified_z_scores) <= threshold
 
         new_filtered_df = filtered_df[mask]
-
         if new_filtered_df.shape[0] < 3:
-            print(f"⚠️ Yeterli güvenli örnek kalmadı: {new_filtered_df.shape[0]}")
-            return model, filtered_df  # fallback: orijinal veriyle geri dön
+            logger.debug("Yeterli güvenli örnek kalmadı (%d). Fallback.", new_filtered_df.shape[0])
+            return model, filtered_df
 
         return model, new_filtered_df

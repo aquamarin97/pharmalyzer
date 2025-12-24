@@ -1,50 +1,87 @@
-# app\services\pipeline.py
+# app/services/pipeline.py
+from __future__ import annotations
+
+from dataclasses import dataclass
 from collections.abc import Iterable
-from typing import Callable
-import traceback
+from typing import Callable, Optional
 
 import pandas as pd
 
 from app.services.data_store import DataStore
 
+# Tip tanımlamaları (Type Hinting)
 Transform = Callable[[pd.DataFrame], pd.DataFrame]
+ProgressCb = Callable[[int, str], None]
+IsCancelled = Callable[[], bool]
 
+class CancelledError(RuntimeError):
+    """Pipeline kullanıcı tarafından iptal edildiğinde fırlatılan özel hata."""
+    pass
+
+@dataclass(frozen=True)
+class Step:
+    """Pipeline içindeki her bir analiz adımını temsil eder."""
+    name: str
+    fn: Transform
 
 class Pipeline:
     """
-    Transformation pipeline that applies functions to the central DataFrame.
-    Each transform must follow the signature: pd.DataFrame -> pd.DataFrame.
+    DataFrame üzerinde sıralı işlemler yapan üretim bandı yapısı.
+    Her adım bir önceki adımın çıktısını girdi olarak alır.
     """
+    
+    @staticmethod
+    def apply(step: Step, copy_input: bool = False) -> pd.DataFrame:
+        """DataStore'daki mevcut veriyi alır ve adımı uygular."""
+        df = DataStore.get_df_copy() if copy_input else DataStore.get_df()
+        
+        # Fonksiyonu çalıştır ve sonucu al
+        result_df = step.fn(df)
+        
+        # Sonucu DataStore'a geri yaz
+        DataStore.set_df(result_df)
+        return result_df
 
     @staticmethod
-    def apply(transform_fn: Transform) -> pd.DataFrame:
-        df = DataStore.get_df()
-        if df is None:
-            raise ValueError("DataStore boş. Pipeline çalıştırılamıyor.")
-
-        next_df = transform_fn(df.copy(deep=True))
-        if next_df is None:
-            raise ValueError("Pipeline adımı DataFrame döndürmedi.")
-
-        DataStore.set_df(next_df)
-        return next_df
-
-    @staticmethod
-    def run(steps: Iterable[Transform]) -> pd.DataFrame:
-        print("pipeline işlemi başlatıldı")
-        last_df: pd.DataFrame | None = None
-
-        for step in steps:
-            step_name = getattr(step, "__qualname__", repr(step))
-            print(f"[Pipeline] step 시작: {step_name}")
-
-            try:
-                last_df = Pipeline.apply(step)
-            except Exception:
-                print(f"[Pipeline] step hata verdi: {step_name}")
-                traceback.print_exc()
-                raise
-
-        if last_df is None:
+    def run(
+        steps: Iterable[Step],
+        *,
+        progress_cb: Optional[ProgressCb] = None,
+        is_cancelled: Optional[IsCancelled] = None,
+        copy_input_each_step: bool = False,
+    ) -> pd.DataFrame:
+        """
+        Tüm adımları sırayla çalıştırır, ilerlemeyi raporlar ve iptalleri denetler.
+        """
+        steps_list = list(steps)
+        if not steps_list:
             raise ValueError("Pipeline adımı bulunamadı.")
+
+        total = len(steps_list)
+
+        def report(i: int, msg: str) -> None:
+            """GUI ilerleme çubuğunu ve mesajını günceller."""
+            if progress_cb:
+                # 0 ile 100 arasında kalmasını garanti altına al (Clamping)
+                percent = int((max(0, min(i, total)) / total) * 100)
+                progress_cb(percent, msg)
+
+        last_df: Optional[pd.DataFrame] = None
+
+        for idx, step in enumerate(steps_list):
+            # İptal kontrolü
+            if is_cancelled and is_cancelled():
+                report(idx, "İptal edildi.")
+                raise CancelledError("Pipeline iptal edildi.")
+
+            # Adım başlıyor raporu
+            report(idx, f"Başlıyor: {step.name}")
+            
+            # Adımı icra et
+            last_df = Pipeline.apply(step, copy_input=copy_input_each_step)
+            
+            # Adım bitti raporu
+            report(idx + 1, f"Bitti: {step.name}")
+
+        report(total, "Pipeline tamamlandı.")
         return last_df

@@ -1,7 +1,12 @@
-# app\controllers\table\table_interaction_controller.py
-# app\controllers\table_interaction_controller.py
+# app/controllers/table/table_interaction_controller.py
+from __future__ import annotations
+
+import logging
 from PyQt5.QtCore import QObject, Qt, QEvent
 from PyQt5.QtGui import QKeyEvent
+
+logger = logging.getLogger(__name__)
+
 
 class TableInteractionController(QObject):
     def __init__(self, table_widget, pcr_data_service, graph_drawer=None):
@@ -9,7 +14,9 @@ class TableInteractionController(QObject):
         self.table_widget = table_widget
         self.pcr_data_service = pcr_data_service
         self.graph_drawer = graph_drawer
-        self._last_row = None
+
+        # ✅ dedupe artık row değil hasta no üzerinden
+        self._last_patient_no: int | None = None
 
         self.table_widget.clicked.connect(self.on_item_clicked)
         self.table_widget.installEventFilter(self)
@@ -20,44 +27,46 @@ class TableInteractionController(QObject):
             return
 
         row = index.row()
-        if self._last_row == row:
-            return
-        self._last_row = row
 
-        patient_no = self._read_patient_no(model, row)
-        if patient_no in (None, "", "-"):
+        if not hasattr(model, "get_patient_no"):
+            logger.warning("Table model get_patient_no() sağlamıyor. Model=%s", type(model).__name__)
             return
+
+        raw_patient_no = model.get_patient_no(row)
+        if raw_patient_no is None:
+            return
+
+        patient_no = self._normalize_patient_no(raw_patient_no)
+        if patient_no is None:
+            return
+
+        # ✅ aynı hasta tekrar seçilirse çizme
+        if self._last_patient_no == patient_no:
+            return
+        self._last_patient_no = patient_no
 
         self._draw_patient(patient_no)
 
-    def _read_patient_no(self, model, row: int):
-        # Eğer modelde yardımcı method eklediysen:
-        if hasattr(model, "get_patient_no"):
-            return model.get_patient_no(row)
+    @staticmethod
+    def _normalize_patient_no(value) -> int | None:
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return None
 
-        # fallback: "Hasta No" kolonunu bulmaya çalış
-        if hasattr(model, "_data") and "Hasta No" in model._data.columns:
-            col = model._data.columns.get_loc("Hasta No")
-            idx = model.index(row, col)
-            return model.data(idx, Qt.DisplayRole)
-
-        return None
-
-    def _draw_patient(self, patient_no):
+    def _draw_patient(self, patient_no: int):
         try:
             coords = self.pcr_data_service.get_coords(patient_no)
-            fam_coords = coords.fam
-            hex_coords = coords.hex
 
             if self.graph_drawer is not None:
                 self.graph_drawer.set_title(f"Hasta {patient_no}")
-                self.graph_drawer.animate_graph(fam_coords, hex_coords)
-        except Exception as e:
-            print(f"[TableInteractionController] çizim hatası: {e}")
+                self.graph_drawer.animate_graph(coords.fam, coords.hex)
 
+        except Exception as e:
+            logger.warning("PCR çizimi başarısız (Hasta No=%s): %s", patient_no, e, exc_info=True)
 
     def eventFilter(self, obj, event):
-        if obj == self.table_widget and isinstance(event, QKeyEvent):
+        if obj == self.table_widget and event.type() == QEvent.KeyPress and isinstance(event, QKeyEvent):
             if event.key() in (Qt.Key_Return, Qt.Key_Enter):
                 index = self.table_widget.currentIndex()
                 if index.isValid():

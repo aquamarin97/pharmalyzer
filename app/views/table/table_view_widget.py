@@ -27,7 +27,7 @@ class TableViewWidget(QTableView):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 
         self._apply_styles_to_table()
-
+        self._resize_pending = False
         self.column_expansion_ratios = []
         self.viewport().installEventFilter(self)
 
@@ -44,7 +44,9 @@ class TableViewWidget(QTableView):
 
     def eventFilter(self, obj, event):
         if obj == self.viewport() and event.type() == QEvent.Resize:
-            self.adjust_column_widths()
+            if not self._resize_pending:
+                self._resize_pending = True
+                QTimer.singleShot(0, self._apply_resize)
         return super().eventFilter(obj, event)
 
     def _apply_styles_to_table(self):
@@ -93,3 +95,7 @@ class TableViewWidget(QTableView):
         for i in range(col_count):
             w = int(total_width * (self.column_expansion_ratios[i] / ratio_sum))
             self.setColumnWidth(i, w)
+
+    def _apply_resize(self):
+        self._resize_pending = False
+        self.adjust_column_widths()

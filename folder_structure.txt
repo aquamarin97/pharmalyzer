@@ -1,16 +1,11 @@
 pharmalyzer/
 ├── .gitignore
-├── 1.txt
 ├── 15.01.2025_SMA_6871 plate_1.rdml
 ├── 24.12.2025-SMA-BONCUK 1 pureprep96 protokol -1.rdml
-├── a.txt
-├── folders.py
 ├── git_commends.txt
 ├── main.py
 ├── main_helper.py
-├── main_python.py
-├── requirements.txt
-└── tapphelper.py
+└── requirements.txt
 └── app/
     └── __init__.py
     └── bootstrap/
@@ -114,6 +109,8 @@ pharmalyzer/
     └── a.txt
 └── docs/
     └── a.txt
+└── helper/
+    └── tapphelper.py
 └── logs/
     └── pharmalizer.log
 └── resources/

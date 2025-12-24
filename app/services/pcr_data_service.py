@@ -1,15 +1,17 @@
-# app\services\pcr_data_service.py
-
+# app/services/pcr_data_service.py
 from __future__ import annotations
 
 import ast
+import logging
 from dataclasses import dataclass
-from typing import Any, Iterable, List, Tuple
+from functools import lru_cache
+from typing import Any, List, Tuple
 
 import pandas as pd
 
 from app.services.data_store import DataStore
 
+logger = logging.getLogger(__name__)
 
 Coord = Tuple[int, float]
 
@@ -24,6 +26,10 @@ class PCRDataService:
     """
     Grafik için gerekli koordinat verilerini DataStore'dan okur.
     UI/Qt bağımlılığı yoktur.
+
+    Performans:
+    - get_df_copy() yerine get_df() kullanır (kopya yok)
+    - literal_eval sonuçlarını cache'ler
     """
 
     HASTA_NO_COL = "Hasta No"
@@ -32,29 +38,29 @@ class PCRDataService:
 
     @staticmethod
     def get_coords(patient_no: Any) -> PCRCoords:
-        """
-        Hasta No -> (FAM coords, HEX coords)
-
-        Returns:
-            PCRCoords(fam=[(cyc, fluor), ...], hex=[(cyc, fluor), ...])
-        """
-        df = DataStore.get_df_copy()
+        df = DataStore.get_df()
         if df is None or df.empty:
             raise ValueError("DataStore boş. Veri yüklenmedi.")
 
         PCRDataService._validate_columns(df)
 
         pn = PCRDataService._normalize_patient_no(patient_no)
-
         row = PCRDataService._find_row_by_patient_no(df, pn)
-        fam_coords = PCRDataService._parse_coords(row.iloc[0][PCRDataService.FAM_COL], label="FAM")
-        hex_coords = PCRDataService._parse_coords(row.iloc[0][PCRDataService.HEX_COL], label="HEX")
 
+        fam_raw = row.iloc[0][PCRDataService.FAM_COL]
+        hex_raw = row.iloc[0][PCRDataService.HEX_COL]
+
+        fam_coords = PCRDataService._parse_coords_cached(fam_raw, label="FAM")
+        hex_coords = PCRDataService._parse_coords_cached(hex_raw, label="HEX")
         return PCRCoords(fam=fam_coords, hex=hex_coords)
 
     @staticmethod
     def _validate_columns(df: pd.DataFrame) -> None:
-        missing = [c for c in (PCRDataService.HASTA_NO_COL, PCRDataService.FAM_COL, PCRDataService.HEX_COL) if c not in df.columns]
+        missing = [
+            c
+            for c in (PCRDataService.HASTA_NO_COL, PCRDataService.FAM_COL, PCRDataService.HEX_COL)
+            if c not in df.columns
+        ]
         if missing:
             raise ValueError(f"DataFrame içinde eksik kolon(lar) var: {missing}")
 
@@ -65,15 +71,15 @@ class PCRDataService:
         except (TypeError, ValueError):
             raise ValueError(f"Geçersiz Hasta No: {patient_no}")
 
-        # İstersen sınır koy (plate 1..96 varsayımı)
         if pn < 1 or pn > 96:
-            # sınırı esnetmek istersen bu check'i kaldırabilirsin
             raise ValueError(f"Hasta No aralık dışı: {pn} (beklenen 1..96)")
 
         return pn
 
     @staticmethod
     def _find_row_by_patient_no(df: pd.DataFrame, pn: int) -> pd.DataFrame:
+        # Not: Bu conversion her çağrıda yapılır; eğer çok büyük DF olursa
+        # "Hasta No" kolonunu import aşamasında Int'a normalize etmek daha iyi.
         hasta_no_series = pd.to_numeric(df[PCRDataService.HASTA_NO_COL], errors="coerce").astype("Int64")
         row = df[hasta_no_series == pn]
         if row.empty:
@@ -81,10 +87,16 @@ class PCRDataService:
         return row
 
     @staticmethod
-    def _parse_coords(raw: Any, label: str) -> List[Coord]:
-        # raw string ise parse et, list ise olduğu gibi al
+    @lru_cache(maxsize=4096)
+    def _literal_eval_cached(raw: str) -> Any:
+        # raw string için cache'li literal_eval
+        return ast.literal_eval(raw)
+
+    @staticmethod
+    def _parse_coords_cached(raw: Any, label: str) -> List[Coord]:
+        # raw string ise parse et (cache'li), list ise olduğu gibi al
         try:
-            coords = ast.literal_eval(raw) if isinstance(raw, str) else raw
+            coords = PCRDataService._literal_eval_cached(raw) if isinstance(raw, str) else raw
         except Exception as e:
             raise ValueError(f"{label} koordinat listesi parse edilemedi: {e}")
 
@@ -94,11 +106,9 @@ class PCRDataService:
         if not isinstance(coords, list):
             raise ValueError(f"{label} koordinat listesi list formatında değil: {type(coords)}")
 
-        # normalize + validate: [(int, float), ...]
         out: List[Coord] = []
         for item in coords:
             if not isinstance(item, (list, tuple)) or len(item) != 2:
-                # örn: [(cyc, fluor), ...] bekleniyor
                 continue
             try:
                 cyc = int(item[0])
@@ -108,3 +118,9 @@ class PCRDataService:
                 continue
 
         return out
+
+    # DataStore güncellendiğinde cache temizlemek istersen:
+    @staticmethod
+    def clear_cache() -> None:
+        PCRDataService._literal_eval_cached.cache_clear()
+        logger.debug("PCRDataService literal_eval cache cleared")

@@ -1,8 +1,7 @@
-# app\views\widgets\pcr_graph_view.py
 # app/views/widgets/pcr_graph_view.py
 from __future__ import annotations
 
-from typing import Iterable, Tuple, List, Optional
+from typing import Tuple, List, Optional
 
 import matplotlib.animation as animation
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -15,7 +14,7 @@ Coord = Tuple[int, float]
 class PCRGraphView(FigureCanvas):
     """
     Matplotlib tabanlı PCR grafik view'i.
-    UI bileşenidir (CMV: View).
+    UI bileşenidir (View).
     """
 
     def __init__(self, parent=None):
@@ -26,6 +25,16 @@ class PCRGraphView(FigureCanvas):
 
         self._title = "PCR Grafik"
         self._ani: Optional[animation.FuncAnimation] = None
+
+        # cache: static + anim koordinatlarını her frame yeniden allocate etmeyelim
+        self._static_fam_x: List[int] = []
+        self._static_fam_y: List[float] = []
+        self._static_hex_x: List[int] = []
+        self._static_hex_y: List[float] = []
+        self._anim_fam_x: List[int] = []
+        self._anim_fam_y: List[float] = []
+        self._anim_hex_x: List[int] = []
+        self._anim_hex_y: List[float] = []
 
         self._setup_style()
         self._setup_lines()
@@ -61,10 +70,7 @@ class PCRGraphView(FigureCanvas):
             linewidth=2,
             color="#FF7F00",
         )
-
-        # legend sabit kalsın
         self.ax.legend()
-
         self.ax.set_title(self._title)
 
     def set_title(self, title: str) -> None:
@@ -72,7 +78,8 @@ class PCRGraphView(FigureCanvas):
         self.ax.set_title(self._title)
         self.draw_idle()
 
-    def clear(self) -> None:
+    # ---- lifecycle / cleanup ----
+    def reset_plot(self) -> None:
         """Grafiği temizle (animasyonu iptal eder, çizgileri sıfırlar)."""
         self._stop_animation()
         self.fam_line.set_data([], [])
@@ -81,15 +88,22 @@ class PCRGraphView(FigureCanvas):
         self.draw_idle()
 
     def _stop_animation(self) -> None:
-        # Önceki animasyonun event-source'unu durdur (üst üste binmeyi engeller)
-        if self._ani is not None:
-            try:
-                if self._ani.event_source is not None:
-                    self._ani.event_source.stop()
-            except Exception:
-                pass
+        if self._ani is None:
+            return
+        try:
+            if getattr(self._ani, "event_source", None) is not None:
+                self._ani.event_source.stop()
+        except Exception:
+            pass
+        finally:
             self._ani = None
 
+    def closeEvent(self, event) -> None:
+        # Widget kapanırken animasyonu kesin durdur
+        self._stop_animation()
+        super().closeEvent(event)
+
+    # ---- drawing ----
     def animate_graph(
         self,
         fam_coords: List[Coord],
@@ -107,19 +121,30 @@ class PCRGraphView(FigureCanvas):
         fam_coords = fam_coords or []
         hex_coords = hex_coords or []
         if not fam_coords and not hex_coords:
-            self.clear()
+            self.reset_plot()
             return
 
-        # split
-        static_fam = [(x, y) for x, y in fam_coords if x < start_x]
-        static_hex = [(x, y) for x, y in hex_coords if x < start_x]
-        anim_fam = [(x, y) for x, y in fam_coords if x >= start_x]
-        anim_hex = [(x, y) for x, y in hex_coords if x >= start_x]
+        # split + cache list'lere yaz
+        self._static_fam_x.clear(); self._static_fam_y.clear()
+        self._static_hex_x.clear(); self._static_hex_y.clear()
+        self._anim_fam_x.clear(); self._anim_fam_y.clear()
+        self._anim_hex_x.clear(); self._anim_hex_y.clear()
 
-        static_fam_x, static_fam_y = zip(*static_fam) if static_fam else ([], [])
-        static_hex_x, static_hex_y = zip(*static_hex) if static_hex else ([], [])
-        anim_fam_x, anim_fam_y = zip(*anim_fam) if anim_fam else ([], [])
-        anim_hex_x, anim_hex_y = zip(*anim_hex) if anim_hex else ([], [])
+        for x, y in fam_coords:
+            if x < start_x:
+                self._static_fam_x.append(int(x))
+                self._static_fam_y.append(float(y))
+            else:
+                self._anim_fam_x.append(int(x))
+                self._anim_fam_y.append(float(y))
+
+        for x, y in hex_coords:
+            if x < start_x:
+                self._static_hex_x.append(int(x))
+                self._static_hex_y.append(float(y))
+            else:
+                self._anim_hex_x.append(int(x))
+                self._anim_hex_y.append(float(y))
 
         # axis limits
         all_x = [x for x, _ in (fam_coords + hex_coords)]
@@ -132,28 +157,28 @@ class PCRGraphView(FigureCanvas):
             self.ax.set_ylim(0, ymax + 500 if ymax > 5000 else 5000)
 
         # draw static part
-        self.fam_line.set_data(static_fam_x, static_fam_y)
-        self.hex_line.set_data(static_hex_x, static_hex_y)
+        self.fam_line.set_data(self._static_fam_x, self._static_fam_y)
+        self.hex_line.set_data(self._static_hex_x, self._static_hex_y)
 
         def update(frame: int):
-            self.fam_line.set_data(
-                list(static_fam_x) + list(anim_fam_x[:frame]),
-                list(static_fam_y) + list(anim_fam_y[:frame]),
-            )
-            self.hex_line.set_data(
-                list(static_hex_x) + list(anim_hex_x[:frame]),
-                list(static_hex_y) + list(anim_hex_y[:frame]),
-            )
+            # frame kadar animasyon datasını ekle (slice -> list allocation var ama minimal)
+            fam_x = self._static_fam_x + self._anim_fam_x[:frame]
+            fam_y = self._static_fam_y + self._anim_fam_y[:frame]
+            hex_x = self._static_hex_x + self._anim_hex_x[:frame]
+            hex_y = self._static_hex_y + self._anim_hex_y[:frame]
+
+            self.fam_line.set_data(fam_x, fam_y)
+            self.hex_line.set_data(hex_x, hex_y)
             return self.fam_line, self.hex_line
 
-        frames = max(len(anim_fam_x), len(anim_hex_x)) + 1
+        frames = max(len(self._anim_fam_x), len(self._anim_hex_x)) + 1
 
         self._ani = animation.FuncAnimation(
             self.fig,
             update,
             frames=frames,
             interval=speed,
-            blit=False,
+            blit=False,   # blit=True istersen performans artar ama Qt+Matplotlib bazen sorun çıkarır
             repeat=False,
         )
         self.draw_idle()
@@ -165,7 +190,7 @@ class PCRGraphView(FigureCanvas):
         fam_coords = fam_coords or []
         hex_coords = hex_coords or []
         if not fam_coords and not hex_coords:
-            self.clear()
+            self.reset_plot()
             return
 
         if fam_coords:

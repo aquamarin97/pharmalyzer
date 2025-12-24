@@ -1,18 +1,17 @@
 # app\views\widgets\regression_graph_view.py
 from __future__ import annotations
 
-from app.views.plotting.pyqtgraph_regression_renderer import PyqtgraphRegressionRenderer
-import pyqtgraph as pg
-from PyQt5.QtWidgets import QVBoxLayout, QSizePolicy
-
 import pandas as pd
+import pyqtgraph as pg
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
 from app.services.regression_plot_service import RegressionPlotService
+from app.views.plotting.pyqtgraph_regression_renderer import PyqtgraphRegressionRenderer
 
 
-class RegressionGraphView:
-    def __init__(self, container_widget):
-        self.container_widget = container_widget
+class RegressionGraphView(QWidget):
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
 
         pg.setConfigOptions(antialias=True)
 
@@ -30,15 +29,21 @@ class RegressionGraphView:
         self._hover_text.hide()
         self.plot_item.addItem(self._hover_text)
 
-        layout = QVBoxLayout()
-        self.container_widget.setLayout(layout)
+        # ✅ Layout artık bu widget'ın kendi layout'u
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.plot_widget)
 
         self._renderer = PyqtgraphRegressionRenderer()
 
     def update(self, df: pd.DataFrame):
         data = RegressionPlotService.build(df)
-        self._renderer.render(self.plot_item, data, enable_hover=True, hover_text_item=self._hover_text)
+        self._renderer.render(
+            self.plot_item,
+            data,
+            enable_hover=True,
+            hover_text_item=self._hover_text,
+        )
 
     def reset(self):
         self._renderer.detach_hover()

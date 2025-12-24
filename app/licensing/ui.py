@@ -1,57 +1,59 @@
-# app\licensing\ui.py
+# app/licensing/ui.py
+from __future__ import annotations
+
 import os
+from typing import Optional
 
-from PyQt5.QtWidgets import QFileDialog, QMessageBox, QApplication
+from PyQt5.QtWidgets import QApplication, QFileDialog, QMessageBox
 
+from app.constants.app_text_key import TextKey
+from app.i18n import t
 from app.licensing.manager import read_saved_license_path, save_license_path
 from app.licensing.validator import validate_license_file
 
-from PyQt5.QtWidgets import QApplication, QMessageBox, QFileDialog
-from app.i18n import t
-from app.constants.app_text_key import TextKey
-def ensure_license_or_exit(app: QApplication | None = None) -> None:
+
+def ensure_license_or_exit(app: Optional[QApplication] = None) -> None:
     """
     Lisans doğrulanamazsa kullanıcıya UI ile sorar, geçerli lisans alamazsa uygulamayı kapatır.
     """
+    if app is None:
+        app = QApplication.instance()
 
-    # 1) Kayıtlı lisans yolunu dene
+    parent = app.activeWindow() if app is not None else None
+
     saved_path = read_saved_license_path()
     if saved_path and os.path.exists(saved_path) and validate_license_file(saved_path):
-        return  # Lisans geçerli → devam et
+        return
 
-    # Kayıtlı lisans vardı ama geçersizse uyarı ver
     if saved_path:
         QMessageBox.warning(
-            None,
+            parent,
             t(TextKey.TITLE_LICENSE_ERROR),
-            t(TextKey.MSG_INVALID_SAVED)
+            t(TextKey.MSG_INVALID_SAVED),
         )
 
-    # 2) Kullanıcıdan yeni lisans dosyası seçtir
     license_file, _ = QFileDialog.getOpenFileName(
-        None,
-        caption=t(TextKey.TITLE_SELECT_FILE),           # "Lisans Dosyasını Seç"
+        parent,
+        caption=t(TextKey.TITLE_SELECT_FILE),
         directory="",
-        filter=t(TextKey.FILTER_LICENSE_FILES)          # "Lisans Dosyaları (*.key)"
+        filter=t(TextKey.FILTER_LICENSE_FILES),
     )
 
-    # Kullanıcı bir dosya seçti mi ve geçerli mi?
     if license_file and validate_license_file(license_file):
         try:
             save_license_path(license_file)
-            return  # Başarılı → uygulamaya devam
+            return
         except Exception as e:
             QMessageBox.critical(
-                None,
+                parent,
                 t(TextKey.TITLE_ERROR),
-                f"{t(TextKey.MSG_PATH_SAVE_FAILED)} {e}"
+                f"{t(TextKey.MSG_PATH_SAVE_FAILED)} {e}",
             )
             raise SystemExit(1)
 
-    # Hiçbir şekilde geçerli lisans elde edilemedi
     QMessageBox.critical(
-        None,
+        parent,
         t(TextKey.TITLE_LICENSE_ERROR),
-        t(TextKey.MSG_INVALID_SELECTED)
+        t(TextKey.MSG_INVALID_SELECTED),
     )
     raise SystemExit(1)

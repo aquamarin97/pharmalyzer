@@ -16,7 +16,6 @@ from app.views.main_view import MainView
 from app.logging.setup import setup_logging
 from app.exceptions.base import install_global_exception_hook
 from app.exceptions.handler import handle_exception
-from app.exceptions.types import StartupError, LicenseError  
 
 
 def main() -> int:

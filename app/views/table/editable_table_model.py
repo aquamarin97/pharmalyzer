@@ -14,6 +14,8 @@ class EditableTableModel(QAbstractTableModel):
     OUTLIER = "Riskli Alan"
     SAFE_ZONE = "Güvenli Bölge"
 
+    PATIENT_NO_COL = "Hasta No"
+
     def __init__(
         self,
         data: pd.DataFrame,
@@ -130,11 +132,15 @@ class EditableTableModel(QAbstractTableModel):
         return None
 
     def setData(self, index: QModelIndex, value: Any, role: int = Qt.EditRole) -> bool:
-        if role == Qt.EditRole and index.isValid():
-            if index.column() == self.dropdown_column:
-                self._data.iloc[index.row(), index.column()] = value
-                self.dataChanged.emit(index, index, [Qt.DisplayRole, Qt.EditRole])
-                return True
+        if role != Qt.EditRole or not index.isValid():
+            return False
+
+        if index.column() == self.dropdown_column:
+            self._data.iloc[index.row(), index.column()] = value
+            # ✅ dropdown renge de etki ediyor; BackgroundRole dahil
+            self.dataChanged.emit(index, index, [Qt.DisplayRole, Qt.EditRole, Qt.BackgroundRole])
+            return True
+
         return False
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlags:
@@ -145,9 +151,46 @@ class EditableTableModel(QAbstractTableModel):
             flags |= Qt.ItemIsEditable
         return flags
 
-    # (opsiyonel) Controller'ın df güncellemesini kolaylaştırır
-    def set_dataframe(self, df: pd.DataFrame):
+    def set_dataframe(
+        self,
+        df: pd.DataFrame,
+        *,
+        dropdown_column: int | None = None,
+        carrier_range: float | None = None,
+        uncertain_range: float | None = None,
+        dropdown_options: List[str] | None = None,
+    ):
         self.beginResetModel()
         self._data = df.copy(deep=False)
         self.headers = list(self._data.columns)
+        if dropdown_column is not None:
+            self.dropdown_column = dropdown_column
+        if dropdown_options is not None:
+            self.dropdown_options = dropdown_options
+        if carrier_range is not None:
+            self.carrier_range = float(carrier_range)
+        if uncertain_range is not None:
+            self.uncertain_range = float(uncertain_range)
         self.endResetModel()
+
+    # ---- TableInteractionController helper ----
+    def get_patient_no(self, row: int):
+        """
+        Controller için tek kaynak: Hasta No.
+        Bulamazsa None döndürür.
+        """
+        if row < 0 or row >= len(self._data):
+            return None
+
+        if self.PATIENT_NO_COL not in self._data.columns:
+            return None
+
+        val = self._data.iloc[row, self._data.columns.get_loc(self.PATIENT_NO_COL)]
+        if val in (None, "", "-"):
+            return None
+        return val
+
+    def get_patient_no_column_index(self) -> int | None:
+        if self.PATIENT_NO_COL not in self._data.columns:
+            return None
+        return int(self._data.columns.get_loc(self.PATIENT_NO_COL))
