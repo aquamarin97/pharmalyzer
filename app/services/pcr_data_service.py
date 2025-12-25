@@ -5,8 +5,7 @@ import ast
 import logging
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, List, Tuple
-
+from typing import Any, Dict, Iterable, List, Tuple
 import pandas as pd
 
 from app.services.data_store import DataStore
@@ -14,7 +13,7 @@ from app.services.data_store import DataStore
 logger = logging.getLogger(__name__)
 
 Coord = Tuple[int, float]
-
+from app.utils import well_mapping
 
 @dataclass(frozen=True)
 class PCRCoords:
@@ -53,6 +52,36 @@ class PCRDataService:
         fam_coords = PCRDataService._parse_coords_cached(fam_raw, label="FAM")
         hex_coords = PCRDataService._parse_coords_cached(hex_raw, label="HEX")
         return PCRCoords(fam=fam_coords, hex=hex_coords)
+
+    @staticmethod
+    def get_coords_for_wells(wells: Iterable[str]) -> Dict[str, PCRCoords]:
+        """Birden fazla kuyu için koordinatları tek seferde getirir."""
+        valid_wells = [w.strip().upper() for w in wells or [] if well_mapping.is_valid_well_id(w)]
+        if not valid_wells:
+            return {}
+
+        df = DataStore.get_df()
+        if df is None or df.empty:
+            raise ValueError("DataStore boş. Veri yüklenmedi.")
+
+        PCRDataService._validate_columns(df)
+
+        target_patients = {well_mapping.well_id_to_patient_no(w) for w in valid_wells}
+        hasta_no_series = pd.to_numeric(df[PCRDataService.HASTA_NO_COL], errors="coerce").astype("Int64")
+        filtered = df[hasta_no_series.isin(target_patients)].copy()
+
+        coords_map: Dict[str, PCRCoords] = {}
+        for _, row in filtered.iterrows():
+            pn = PCRDataService._normalize_patient_no(row[PCRDataService.HASTA_NO_COL])
+            well_id = well_mapping.patient_no_to_well_id(pn)
+            fam_raw = row[PCRDataService.FAM_COL]
+            hex_raw = row[PCRDataService.HEX_COL]
+
+            fam_coords = PCRDataService._parse_coords_cached(fam_raw, label="FAM")
+            hex_coords = PCRDataService._parse_coords_cached(hex_raw, label="HEX")
+            coords_map[well_id] = PCRCoords(fam=fam_coords, hex=hex_coords)
+
+        return coords_map
 
     @staticmethod
     def _validate_columns(df: pd.DataFrame) -> None:

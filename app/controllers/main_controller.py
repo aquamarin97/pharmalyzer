@@ -10,13 +10,14 @@ from app.controllers.app.export_controller import ExportController
 from app.controllers.well.well_edit_controller import WellEditController
 from app.controllers.table.table_controller import AppTableController
 from app.controllers.app.drag_drop_controller import DragDropController
-
+from app.services.interaction_store import InteractionStore
+from app.services.pcr_data_service import PCRDataService
 from app.services.export.export_options import ExportOptions
 from app.services.data_store import DataStore
-
+from app.controllers.interaction.interaction_controller import InteractionController
 from app.views.main_view import MainView
 from app.models.main_model import MainModel
-
+from app.views.widgets.pcr_plate_widget import PCRPlateWidget
 from app.views.widgets.regression_graph_view import RegressionGraphView
 from app.views.widgets.pcr_graph_view import PCRGraphView
 from app.controllers.graph.graph_controller import GraphController
@@ -34,6 +35,11 @@ class MainController:
         self.graph_drawer: PCRGraphView | None = None
         self.regression_graph_view: RegressionGraphView | None = None
         self.graph_controller: GraphController | None = None
+
+        self.plate_widget: PCRPlateWidget | None = None
+        self.interaction_store = InteractionStore()
+        self.interaction_controller: InteractionController | None = None
+        self.pcr_data_service = PCRDataService()
 
         self._wire_model_signals()
         self._wire_view_signals()
@@ -68,6 +74,8 @@ class MainController:
 
     # -------------------- Init / Reset --------------------
     def _initialize_components(self) -> None:
+        self.interaction_store.clear_selection()
+        self.interaction_store.set_hover(None)
         # grafikler (view container üzerinden)
         self._initialize_graphics()
 
@@ -77,7 +85,8 @@ class MainController:
         self._setup_drag_and_drop()
         self._setup_table_controller()
         self._setup_well_managers()
-
+        self._setup_interaction_controller()
+        
         self.view.reset_box_colors()
         self.view.set_analyze_enabled(False)
         self.view.set_dragdrop_label("RDML dosyanızı sürükleyip bırakınız")
@@ -92,6 +101,7 @@ class MainController:
             view=self.view,
             model=self.model,
             graph_drawer=self.graph_drawer,  # PCRGraphView
+            interaction_store=self.interaction_store,
         )
 
     def _setup_well_managers(self) -> None:
@@ -117,6 +127,26 @@ class MainController:
             on_change=self.model.colored_box_controller.set_NTC_line_edit,
         )
 
+    def _setup_interaction_controller(self) -> None:
+        if (
+            self.table_controller is None
+            or self.table_controller.table_interaction is None
+            or self.graph_drawer is None
+            or self.regression_graph_view is None
+            or self.plate_widget is None
+        ):
+            return
+
+        self.interaction_controller = InteractionController(
+            store=self.interaction_store,
+            plate_widget=self.plate_widget,
+            table_interaction=self.table_controller.table_interaction,
+            regression_graph_view=self.regression_graph_view,
+            pcr_graph_view=self.graph_drawer,
+            pcr_data_service=self.pcr_data_service,
+        )
+
+
     # -------------------- Graphics --------------------
     def _initialize_graphics(self) -> None:
         # PCR graph
@@ -136,6 +166,17 @@ class MainController:
         layout = self.view.ensure_regression_graph_container()
         self.regression_graph_view = RegressionGraphView(parent=self.view.ui.regration_container)
         layout.addWidget(self.regression_graph_view)
+
+        # PCR plate
+        if self.plate_widget is not None:
+            self.plate_widget.deleteLater()
+            self.plate_widget = None
+
+        original_plate = self.view.ui.PCR_plate_container
+        self.view.ui.PCR_plate_container = PCRPlateWidget(original_plate)
+        self.view.ui.verticalLayout_2.replaceWidget(original_plate, self.view.ui.PCR_plate_container)
+        original_plate.deleteLater()
+        self.plate_widget = self.view.ui.PCR_plate_container
 
     def _on_close_requested(self) -> None:
         # Release-grade: thread’i güvenli kapat

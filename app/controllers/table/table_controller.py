@@ -26,10 +26,11 @@ class AppTableController:
     - TableInteractionController ile tıklama/enter etkileşimlerini bağlama
     """
 
-    def __init__(self, view, model, graph_drawer=None):
+    def __init__(self, view, model, graph_drawer=None, interaction_store=None):
         self.view = view
         self.model = model
         self.graph_drawer = graph_drawer
+        self.interaction_store = interaction_store
 
         self.dropdown_column = DROPDOWN_COLUMN
         self.dropdown_options = DROPDOWN_OPTIONS
@@ -68,6 +69,7 @@ class AppTableController:
             table_widget=self.table_widget,
             pcr_data_service=PCRDataService(),
             graph_drawer=self.graph_drawer,
+            interaction_store=self.interaction_store,
         )
 
     def set_carrier_range(self, val: float):
@@ -124,6 +126,8 @@ class AppTableController:
                 uncertain_range=self.uncertain_range,
             )
             self.table_widget.setModel(self.table_model)
+            if self.table_interaction is not None:
+                self.table_interaction.attach_selection_model()
 
         dropdown_delegate = DropDownDelegate(
             options=self.dropdown_options,
