@@ -70,12 +70,11 @@ class PCRGraphRenderer(FigureCanvas):
             return
 
         wells_sorted = sorted(data.keys(), key=lambda w: well_mapping.well_id_to_patient_no(w))
-        color_map = cm.get_cmap("tab20", max(1, len(wells_sorted)))
 
         fam_all: List[Coord] = []
         hex_all: List[Coord] = []
+        for well in wells_sorted:
 
-        for idx, well in enumerate(wells_sorted):
             coords = data.get(well)
             if coords is None:
                 continue
@@ -95,19 +94,18 @@ class PCRGraphRenderer(FigureCanvas):
             else:
                 hex_x, hex_y = [], []
 
-            color = color_map(idx)
             fam_line, = self.ax.plot(
                 fam_x,
                 fam_y,
-                label=f"{well} FAM",
-                color=color,
+                label="FAM",
+                color=self._style.fam_color,
                 **self._style.fam_pen,
             )
             hex_line, = self.ax.plot(
                 hex_x,
                 hex_y,
-                label=f"{well} HEX",
-                color=color,
+                label="HEX",
+                color=self._style.hex_color,
                 **self._style.hex_pen,
             )
 
@@ -214,21 +212,24 @@ class PCRGraphRenderer(FigureCanvas):
         if legend:
             legend.remove()
 
-        handles_labels = []
-        for _, line in self._fam_lines.items():
-            if line.get_visible():
-                handles_labels.append((line, line.get_label()))
-        for _, line in self._hex_lines.items():
-            if line.get_visible():
-                handles_labels.append((line, line.get_label()))
+        fam_visible = any(line.get_visible() for line in self._fam_lines.values())
+        hex_visible = any(line.get_visible() for line in self._hex_lines.values())
 
-        visible_handles = [(h, label) for h, label in handles_labels if h.get_visible()]
-
-        if not visible_handles:
+        if not fam_visible and not hex_visible:
             return
 
-        handles, labels = zip(*visible_handles)
-        legend = self.ax.legend(handles, labels, fontsize=8)
+        handles: List[Line2D] = []
+        labels: List[str] = []
+        if fam_visible:
+            handles.append(Line2D([0], [0], color=self._style.fam_color, label="FAM", **self._style.fam_pen))
+            labels.append("FAM")
+        if hex_visible:
+            handles.append(Line2D([0], [0], color=self._style.hex_color, label="HEX", **self._style.hex_pen))
+            labels.append("HEX")
+        if not handles:
+            return
+
+        legend = self.ax.legend(handles, labels, fontsize=8, loc="upper left")
 
         s = self._style
         for text in legend.get_texts():
