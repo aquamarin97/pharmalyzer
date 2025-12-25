@@ -60,53 +60,69 @@ class TAppHelper:
 
         print(f"\n--- İşlem Tamamlandı ---")
         print(f"Güncellenen: {processed_count} | Atlanan: {skipped_count}") 
-
     @staticmethod
     def export_folder_tree():
-        startpath = Path.cwd()
-        output_filename = "folder_structure.txt"
+            startpath = Path.cwd()
+            output_filename = "folder_structure.txt"
 
-        IGNORE_DIRS = {'.git', '.vscode', '__pycache__', 'venv', '.idea'}
-        IGNORE_EXTENSIONS = {'.pyc', '.pyo', '.ds_store', '.gitignore'}
+            # Yoksayılacaklar
+            IGNORE_DIRS = {'.git', '.vscode', '__pycache__', 'venv', '.idea', 'node_modules'}
+            IGNORE_EXTENSIONS = {'.pyc', '.pyo', '.ds_store', '.gitignore'}
 
-        try:
-            with open(output_filename, 'w', encoding='utf-8') as f:
-                f.write(f"{startpath.name}/\n")
+            def generate_tree(directory, prefix=""):
+                """
+                Recursive (Özyinelemeli) olarak klasör yapısını string listesi olarak döndürür.
+                Bu yöntem görsel olarak daha sağlamdır.
+                """
+                tree_lines = []
+                
+                try:
+                    # Klasör içeriğini al ve sırala (Önce klasörler, sonra dosyalar)
+                    contents = list(directory.iterdir())
+                    contents.sort(key=lambda x: (not x.is_dir(), x.name.lower()))
+                except PermissionError:
+                    return []
 
-                for root, dirs, files in os.walk(startpath):
-                    # 1. KRİTİK DÜZELTME: Listeyi yerinde (in-place) temizle
-                    # Bu sayede os.walk bu klasörlerin içine hiç girmez.
-                    dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
-                    
-                    # Göreceli yolu al
-                    relative_path = Path(root).relative_to(startpath)
-                    
-                    # Başlangıç dizinini tekrar yazma
-                    if relative_path == Path('.'):
-                        # Ama başlangıç dizinindeki dosyaları listelememiz lazım
-                        current_depth = 0
+                # Filtreleme işlemi
+                items = []
+                for item in contents:
+                    if item.is_dir():
+                        if item.name not in IGNORE_DIRS:
+                            items.append(item)
                     else:
-                        current_depth = len(relative_path.parts)
-                        indent = "    " * (current_depth - 1)
-                        f.write(f"{indent}└── {relative_path.name}/\n")
+                        if item.suffix not in IGNORE_EXTENSIONS and item.name != output_filename:
+                            items.append(item)
 
-                    # 2. Dosyaları Filtrele ve Yaz
-                    filtered_files = [
-                        fname for fname in files 
-                        if Path(fname).suffix not in IGNORE_EXTENSIONS 
-                        and fname != output_filename # Çıktı dosyasını listeye ekleme
-                    ]
+                # Eleman sayısını al
+                count = len(items)
+                
+                for index, item in enumerate(items):
+                    is_last = (index == count - 1)
+                    connector = "└── " if is_last else "├── "
+                    
+                    # Listeye ekle
+                    tree_lines.append(f"{prefix}{connector}{item.name}")
+                    
+                    if item.is_dir():
+                        # Bir alt klasöre girerken prefix'i güncelle
+                        # Eğer son klasörse boşluk, değilse dikey çizgi (|) ekle
+                        extension = "    " if is_last else "│   "
+                        tree_lines.extend(generate_tree(item, prefix=prefix + extension))
+                
+                return tree_lines
 
-                    file_indent = "    " * current_depth
-                    for i, fname in enumerate(filtered_files):
-                        is_last = (i == len(filtered_files) - 1)
-                        prefix = "└──" if is_last else "├──"
-                        f.write(f"{file_indent}{prefix} {fname}\n")
+            try:
+                # Ağacı oluştur
+                tree_output = [f"{startpath.name}/"] + generate_tree(startpath)
+                
+                # Dosyaya yaz (newline karakterini açıkça belirterek)
+                with open(output_filename, 'w', encoding='utf-8', newline='\n') as f:
+                    f.write("\n".join(tree_output))
 
-            print(f"✅ Klasör yapısı '{output_filename}' dosyasına yazıldı.")
+                print(f"✅ Klasör yapısı '{output_filename}' dosyasına yazıldı.")
 
-        except Exception as e:
-            print(f"❌ Hata: {e}") 
+            except Exception as e:
+                print(f"❌ Hata: {e}")
             
     @staticmethod
     def fix_path_comments():
