@@ -4,7 +4,6 @@ import time
 import logging 
 logger = logging.getLogger(__name__)
 
-from PyQt5.QtCore import Qt
 
 from app.controllers.app.export_controller import ExportController
 from app.controllers.well.well_edit_controller import WellEditController
