@@ -1,5 +1,6 @@
 pharmalyzer/
 ├── .gitignore
+├── 1.txt
 ├── 15.01.2025_SMA_6871 plate_1.rdml
 ├── 24.12.2025-SMA-BONCUK 1 pureprep96 protokol -1.rdml
 ├── git_commends.txt
@@ -7,7 +8,6 @@ pharmalyzer/
 ├── main_helper.py
 └── requirements.txt
 └── app/
-    └── __init__.py
     └── bootstrap/
         ├── resources.py
         └── splash.py
@@ -23,7 +23,6 @@ pharmalyzer/
     └── controllers/
         └── main_controller.py
         └── analysis/
-            ├── analysis_controller.py
             └── colored_box_controller.py
         └── app/
             ├── drag_drop_controller.py
@@ -50,8 +49,7 @@ pharmalyzer/
         ├── validator.py
         └── __init__.py
     └── logging/
-        ├── setup.py
-        └── __init__.py
+        └── setup.py
     └── models/
         └── main_model.py
         └── workers/
