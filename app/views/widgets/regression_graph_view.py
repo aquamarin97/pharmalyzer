@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
 from app.services.regression_plot_service import RegressionPlotService
 from app.views.plotting.pyqtgraph_regression_renderer import PyqtgraphRegressionRenderer
-from app.constants.regression_plot_style import RegressionPlotStyle
+from app.views.plotting.regression.styles import RegressionPlotStyle
 from app.services.interaction_store import InteractionStore
 
 
