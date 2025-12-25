@@ -101,17 +101,14 @@ class PCRGraphRenderer(FigureCanvas):
                 fam_y,
                 label=f"{well} FAM",
                 color=color,
-                linewidth=2.0,
-                alpha=0.9,
+                **self._style.fam_pen,
             )
             hex_line, = self.ax.plot(
                 hex_x,
                 hex_y,
                 label=f"{well} HEX",
                 color=color,
-                linewidth=2.0,
-                alpha=0.6,
-                linestyle="--",
+                **self._style.hex_pen,
             )
 
             fam_line.set_visible(self._fam_visible)
@@ -135,6 +132,8 @@ class PCRGraphRenderer(FigureCanvas):
         )
         if ylim:
             self.ax.set_ylim(*ylim)
+        else:
+            self.ax.set_ylim(*self._style.axes.default_ylim)
         self.ax.relim()
         self.ax.autoscale_view(scalex=True, scaley=False)
 
@@ -154,8 +153,8 @@ class PCRGraphRenderer(FigureCanvas):
             self._style_line(line, hovered, well, channel="hex")
 
     def _style_line(self, line: Line2D, hovered: Optional[str], well: str, channel: str) -> None:
-        base_alpha = 0.9 if channel == "fam" else 0.6
-        base_width = 2.0
+        base_alpha = self._style.fam_pen.get("alpha", 1.0) if channel == "fam" else self._style.hex_pen.get("alpha", 1.0)
+        base_width = float(self._style.fam_pen.get("linewidth", 2.0)) if channel == "fam" else float(self._style.hex_pen.get("linewidth", 2.0))
         if hovered is None:
             line.set_alpha(base_alpha)
             line.set_linewidth(base_width)
@@ -191,12 +190,14 @@ class PCRGraphRenderer(FigureCanvas):
 
     # ---- styling ----
     def _setup_axes(self) -> None:
-        s = self._style
+        s = self._style.axes
         self.fig.patch.set_facecolor(s.fig_facecolor)
         self.ax.set_facecolor(s.ax_facecolor)
+        self.ax.set_axisbelow(True)
+        self.fig.set_facecolor(s.fig_facecolor)
         self.ax.grid(color=s.grid_color, linestyle=s.grid_linestyle, linewidth=s.grid_linewidth)
 
-        self.ax.tick_params(colors=s.tick_color)
+        self.ax.tick_params(colors=s.tick_color, width=s.tick_width)
         self.ax.xaxis.label.set_color(s.label_color)
         self.ax.yaxis.label.set_color(s.label_color)
         self.ax.title.set_color(s.title_color)
@@ -206,7 +207,8 @@ class PCRGraphRenderer(FigureCanvas):
 
         self.ax.axhline(y=0, color=s.grid_color, linestyle="-", linewidth=1)
         self.ax.axvline(x=0, color=s.grid_color, linestyle="-", linewidth=1)
-
+        for spine in self.ax.spines.values():
+            spine.set_color(s.grid_color)
     def _refresh_legend(self) -> None:
         legend = self.ax.get_legend()
         if legend:
