@@ -27,18 +27,21 @@ class AxesStyle:
 
 @dataclass(frozen=True)
 class PCRGraphStyle:
-    axes: AxesStyle = AxesStyle()
+    # 1. Basit varsayılan değerleri en başa al
+    fam_color: str = "#22C7A8"
+    hex_color: str = "#F4A261"
+    
+    legend_frame_facecolor: str = COLOR_STYLES.PLOT_LEGEND_BG_HEX
+    legend_frame_edgecolor: str = COLOR_STYLES.PLOT_GRID_HEX
+    legend_text_color: str = COLOR_STYLES.PLOT_TEXT_HEX
 
+    # 2. AxesStyle gibi karmaşık objeler
+    axes: AxesStyle = field(default_factory=AxesStyle)
+
+    # 3. Default Factory (Mutable) alanları en sona al
     fam_pen: Dict[str, float | str] = field(
         default_factory=lambda: {"linewidth": 2.1, "alpha": 0.95}
     )
     hex_pen: Dict[str, float | str] = field(
         default_factory=lambda: {"linewidth": 2.0, "alpha": 0.7, "linestyle": "-"}
     )
-
-    fam_color: str = "#22C7A8"
-    hex_color: str = "#F4A261"
-
-    legend_frame_facecolor: str = COLOR_STYLES.PLOT_LEGEND_BG_HEX
-    legend_frame_edgecolor: str = COLOR_STYLES.PLOT_GRID_HEX
-    legend_text_color: str = COLOR_STYLES.PLOT_TEXT_HEX

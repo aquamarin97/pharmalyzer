@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pyqtgraph as pg
 from PyQt5.QtCore import Qt
+from PyQt5 import QtGui
 
 from app.i18n import t
 from app.services.interaction_store import InteractionStore
@@ -41,6 +42,9 @@ class RegressionInteraction:
             try:
                 if hasattr(proxy, "disconnect"):
                     proxy.disconnect()
+                elif isinstance(proxy, tuple) and len(proxy) == 2:
+                    signal, slot = proxy
+                    signal.disconnect(slot)
             except Exception:
                 pass
         self._hover_proxy = None
@@ -86,10 +90,10 @@ class RegressionInteraction:
     def _attach_click(self, plot_item: pg.PlotItem, hover_text_item: pg.TextItem) -> None:
         view_box = plot_item.vb
 
-        def on_mouse_clicked(evt):
-            if evt.button() != Qt.LeftButton:
+        def on_mouse_clicked(mouse_evt: QtGui.QGraphicsSceneMouseEvent):
+            if mouse_evt.button() != Qt.LeftButton:
                 return
-            pos = evt.scenePos()
+            pos = mouse_evt.scenePos()
             if not view_box.sceneBoundingRect().contains(pos):
                 return
 
@@ -100,7 +104,7 @@ class RegressionInteraction:
             if well_idx is not None:
                 well = self._hover_points.wells[well_idx] if well_idx < self._hover_points.wells.size else ""
                 if self._store is not None:
-                    if evt.modifiers() & Qt.ControlModifier:
+                    if mouse_evt.modifiers() & Qt.ControlModifier:
                         self._store.toggle_wells({well})
                     else:
                         self._store.set_selection({well})
@@ -108,7 +112,7 @@ class RegressionInteraction:
                 hover_text_item.setText(t("regression.plot.hover.well_no", well=well))
                 hover_text_item.setPos(float(self._hover_points.x[well_idx]), float(self._hover_points.y[well_idx]))
                 hover_text_item.show()
-                evt.accept()
+                mouse_evt.accept()
                 return
 
             if self._store is not None:
@@ -116,11 +120,8 @@ class RegressionInteraction:
                 self._store.set_hover(None)
             hover_text_item.hide()
 
-        self._click_proxy = pg.SignalProxy(
-            plot_item.scene().sigMouseClicked,
-            rateLimit=60,
-            slot=on_mouse_clicked,
-        )
+        plot_item.scene().sigMouseClicked.connect(on_mouse_clicked)
+        self._click_proxy = (plot_item.scene().sigMouseClicked, on_mouse_clicked)
 
     def _nearest_well_index(self, mx: float, my: float, plot_item: pg.PlotItem) -> int | None:
         dx = self._hover_points.x - mx
