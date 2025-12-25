@@ -777,6 +777,7 @@ class Ui_MainWindow(object):
         self.checkBox_FAM.setMaximumSize(QtCore.QSize(16777215, 20))
         self.checkBox_FAM.setStyleSheet("background-color: transparent;\n"
 "color: White")
+        self.checkBox_FAM.setChecked(True)
         self.checkBox_FAM.setObjectName("checkBox_FAM")
         self.horizontalLayout_2.addWidget(self.checkBox_FAM)
         self.checkBox_HEX = QtWidgets.QCheckBox(self.centralwidget)
@@ -784,6 +785,7 @@ class Ui_MainWindow(object):
         self.checkBox_HEX.setMaximumSize(QtCore.QSize(16777215, 20))
         self.checkBox_HEX.setStyleSheet("background-color: transparent;\n"
 "color: White")
+        self.checkBox_HEX.setChecked(True)
         self.checkBox_HEX.setObjectName("checkBox_HEX")
         self.horizontalLayout_2.addWidget(self.checkBox_HEX)
         self.verticalLayout_2.addLayout(self.horizontalLayout_2)
@@ -866,12 +868,3 @@ class Ui_MainWindow(object):
         self.actionTemizle.setText(_translate("MainWindow", "Temizle"))
         self.actionFiltreleme.setText(_translate("MainWindow", "Filtreleme"))
 
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    MainWindow = QtWidgets.QMainWindow()
-    ui = Ui_MainWindow()
-    ui.setupUi(MainWindow)
-    MainWindow.show()
-    sys.exit(app.exec_())

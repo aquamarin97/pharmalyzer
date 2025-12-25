@@ -19,6 +19,7 @@ from app.models.main_model import MainModel
 
 from app.views.widgets.regression_graph_view import RegressionGraphView
 from app.views.widgets.pcr_graph_view import PCRGraphView
+from app.controllers.graph.graph_controller import GraphController
 
 
 class MainController:
@@ -32,6 +33,7 @@ class MainController:
 
         self.graph_drawer: PCRGraphView | None = None
         self.regression_graph_view: RegressionGraphView | None = None
+        self.graph_controller: GraphController | None = None
 
         self._wire_model_signals()
         self._wire_view_signals()
@@ -125,9 +127,12 @@ class MainController:
         layout = self.view.ensure_graph_drawer_layout()
         self.graph_drawer = PCRGraphView(parent=self.view.ui.PCR_graph_container)
         layout.addWidget(self.graph_drawer)
+        if self.graph_controller is None:
+            self.graph_controller = GraphController(ui=self.view.ui, graph_view=self.graph_drawer)
+        else:
+            self.graph_controller.set_graph_view(self.graph_drawer)
+            self.graph_controller.reset_checkboxes()
 
-        # Regression graph container (UI name typo: regration_container)
-        # Profesyonellik: mümkünse UI'da ismi "regression_container" yap.
         layout = self.view.ensure_regression_graph_container()
         self.regression_graph_view = RegressionGraphView(parent=self.view.ui.regration_container)
         layout.addWidget(self.regression_graph_view)

@@ -81,7 +81,6 @@ pharmalyzer/
             ├── rdml_parser.py
             └── rdml_reader.py
         └── validators/
-            ├── data_Validor.py
             └── well_validators.py
     └── views/
         └── main_view.py

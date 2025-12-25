@@ -72,6 +72,7 @@ class PCRGraphView(FigureCanvas):
         )
         self.ax.legend()
         self.ax.set_title(self._title)
+        self._refresh_legend()
 
     def set_title(self, title: str) -> None:
         self._title = title
@@ -214,3 +215,36 @@ class PCRGraphView(FigureCanvas):
         self.ax.relim()
         self.ax.autoscale_view(scalex=True, scaley=False)
         self.draw_idle()
+
+    # ---- visibility ----
+    def set_channel_visibility(self, fam_visible: bool | None = None, hex_visible: bool | None = None) -> None:
+        """
+        Kanal görünürlüğünü günceller ve lejandı senkronize eder.
+        """
+        if fam_visible is not None:
+            self.fam_line.set_visible(bool(fam_visible))
+        if hex_visible is not None:
+            self.hex_line.set_visible(bool(hex_visible))
+
+        self._refresh_legend()
+        self.draw_idle()
+
+    def _refresh_legend(self) -> None:
+        """Yalnızca görünür hatları içeren lejantı yeniden oluştur."""
+        legend = self.ax.get_legend()
+        if legend:
+            legend.remove()
+
+        handles_labels = [
+            (self.fam_line, self.fam_line.get_label()),
+            (self.hex_line, self.hex_line.get_label()),
+        ]
+        visible_handles = [(h, label) for h, label in handles_labels if h.get_visible()]
+
+        if visible_handles:
+            handles, labels = zip(*visible_handles)
+            legend = self.ax.legend(handles, labels)
+            for text in legend.get_texts():
+                text.set_color("white")
+            legend.get_frame().set_facecolor("#202020")
+            legend.get_frame().set_edgecolor("white")
