@@ -7,8 +7,8 @@ import matplotlib.animation as animation
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
-
-Coord = Tuple[int, float]
+from app.constants.pcr_graph_style import PCRGraphStyle
+from app.services.graph.pcr_graph_layout_service import PCRGraphLayoutService, Coord, PCRSplitData
 
 
 class PCRGraphView(FigureCanvas):
@@ -17,12 +17,13 @@ class PCRGraphView(FigureCanvas):
     UI bileşenidir (View).
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, style: PCRGraphStyle | None = None):
         self.fig = Figure(figsize=(6, 4.5))
         self.ax = self.fig.add_subplot(111)
         super().__init__(self.fig)
         self.setParent(parent)
 
+        self._style = style or PCRGraphStyle()
         self._title = "PCR Grafik"
         self._ani: Optional[animation.FuncAnimation] = None
 
@@ -40,37 +41,26 @@ class PCRGraphView(FigureCanvas):
         self._setup_lines()
 
     def _setup_style(self) -> None:
-        self.fig.patch.set_facecolor("black")
-        self.ax.set_facecolor("black")
-        self.ax.grid(color="grey", linestyle="--", linewidth=0.5)
+        s = self._style
+        self.fig.patch.set_facecolor(s.fig_facecolor)
+        self.ax.set_facecolor(s.ax_facecolor)
+        self.ax.grid(color=s.grid_color, linestyle=s.grid_linestyle, linewidth=s.grid_linewidth)
 
-        self.ax.tick_params(colors="white")
-        self.ax.xaxis.label.set_color("white")
-        self.ax.yaxis.label.set_color("white")
-        self.ax.title.set_color("white")
+        self.ax.tick_params(colors=s.tick_color)
+        self.ax.xaxis.label.set_color(s.label_color)
+        self.ax.yaxis.label.set_color(s.label_color)
+        self.ax.title.set_color(s.title_color)
 
-        self.ax.set_xlim(0, 40)
-        self.ax.set_ylim(0, 5000)
+        self.ax.set_xlim(*s.default_xlim)
+        self.ax.set_ylim(*s.default_ylim)
 
-        self.ax.axhline(y=0, color="grey", linestyle="-", linewidth=1)
-        self.ax.axvline(x=0, color="grey", linestyle="-", linewidth=1)
+        self.ax.axhline(y=0, color=s.grid_color, linestyle="-", linewidth=1)
+        self.ax.axvline(x=0, color=s.grid_color, linestyle="-", linewidth=1)
 
     def _setup_lines(self) -> None:
-        (self.fam_line,) = self.ax.plot(
-            [], [],
-            label="FAM",
-            linestyle="-",
-            linewidth=2,
-            color="#39FF14",
-        )
-        (self.hex_line,) = self.ax.plot(
-            [], [],
-            label="HEX",
-            linestyle="-",
-            linewidth=2,
-            color="#FF7F00",
-        )
-        self.ax.legend()
+        s = self._style
+        (self.fam_line,) = self.ax.plot([], [], label="FAM", linestyle="-", linewidth=2, color=s.fam_color)
+        (self.hex_line,) = self.ax.plot([], [], label="HEX", linestyle="-", linewidth=2, color=s.hex_color)
         self.ax.set_title(self._title)
         self._refresh_legend()
 
@@ -100,7 +90,6 @@ class PCRGraphView(FigureCanvas):
             self._ani = None
 
     def closeEvent(self, event) -> None:
-        # Widget kapanırken animasyonu kesin durdur
         self._stop_animation()
         super().closeEvent(event)
 
@@ -125,44 +114,34 @@ class PCRGraphView(FigureCanvas):
             self.reset_plot()
             return
 
-        # split + cache list'lere yaz
-        self._static_fam_x.clear(); self._static_fam_y.clear()
-        self._static_hex_x.clear(); self._static_hex_y.clear()
-        self._anim_fam_x.clear(); self._anim_fam_y.clear()
-        self._anim_hex_x.clear(); self._anim_hex_y.clear()
+        split: PCRSplitData = PCRGraphLayoutService.split_static_anim(
+            fam_coords=fam_coords,
+            hex_coords=hex_coords,
+            start_x=start_x,
+            min_y_floor=float(self._style.default_ylim[1]),
+            y_padding=500.0,
+        )
 
-        for x, y in fam_coords:
-            if x < start_x:
-                self._static_fam_x.append(int(x))
-                self._static_fam_y.append(float(y))
-            else:
-                self._anim_fam_x.append(int(x))
-                self._anim_fam_y.append(float(y))
+        # cache'leri güncelle
+        self._static_fam_x[:] = split.static_fam_x
+        self._static_fam_y[:] = split.static_fam_y
+        self._static_hex_x[:] = split.static_hex_x
+        self._static_hex_y[:] = split.static_hex_y
+        self._anim_fam_x[:] = split.anim_fam_x
+        self._anim_fam_y[:] = split.anim_fam_y
+        self._anim_hex_x[:] = split.anim_hex_x
+        self._anim_hex_y[:] = split.anim_hex_y
 
-        for x, y in hex_coords:
-            if x < start_x:
-                self._static_hex_x.append(int(x))
-                self._static_hex_y.append(float(y))
-            else:
-                self._anim_hex_x.append(int(x))
-                self._anim_hex_y.append(float(y))
+        if split.xlim:
+            self.ax.set_xlim(*split.xlim)
+        if split.ylim:
+            self.ax.set_ylim(*split.ylim)
 
-        # axis limits
-        all_x = [x for x, _ in (fam_coords + hex_coords)]
-        all_y = [y for _, y in (fam_coords + hex_coords)]
-
-        if all_x:
-            self.ax.set_xlim(min(all_x) - 1, max(all_x) + 1)
-        if all_y:
-            ymax = max(all_y)
-            self.ax.set_ylim(0, ymax + 500 if ymax > 5000 else 5000)
-
-        # draw static part
+        # static part
         self.fam_line.set_data(self._static_fam_x, self._static_fam_y)
         self.hex_line.set_data(self._static_hex_x, self._static_hex_y)
 
         def update(frame: int):
-            # frame kadar animasyon datasını ekle (slice -> list allocation var ama minimal)
             fam_x = self._static_fam_x + self._anim_fam_x[:frame]
             fam_y = self._static_fam_y + self._anim_fam_y[:frame]
             hex_x = self._static_hex_x + self._anim_hex_x[:frame]
@@ -172,14 +151,12 @@ class PCRGraphView(FigureCanvas):
             self.hex_line.set_data(hex_x, hex_y)
             return self.fam_line, self.hex_line
 
-        frames = max(len(self._anim_fam_x), len(self._anim_hex_x)) + 1
-
         self._ani = animation.FuncAnimation(
             self.fig,
             update,
-            frames=frames,
+            frames=split.frames,
             interval=speed,
-            blit=False,   # blit=True istersen performans artar ama Qt+Matplotlib bazen sorun çıkarır
+            blit=False,
             repeat=False,
         )
         self.draw_idle()
@@ -207,10 +184,14 @@ class PCRGraphView(FigureCanvas):
         self.fam_line.set_data(fam_x, fam_y)
         self.hex_line.set_data(hex_x, hex_y)
 
-        all_y = list(fam_y) + list(hex_y)
-        if all_y:
-            ymax = max(all_y)
-            self.ax.set_ylim(0, ymax + 500 if ymax > 4500 else 4500)
+        ylim = PCRGraphLayoutService.compute_ylim_for_static_draw(
+            fam_coords=fam_coords,
+            hex_coords=hex_coords,
+            min_floor=4500.0,
+            y_padding=500.0,
+        )
+        if ylim:
+            self.ax.set_ylim(*ylim)
 
         self.ax.relim()
         self.ax.autoscale_view(scalex=True, scaley=False)
@@ -218,9 +199,6 @@ class PCRGraphView(FigureCanvas):
 
     # ---- visibility ----
     def set_channel_visibility(self, fam_visible: bool | None = None, hex_visible: bool | None = None) -> None:
-        """
-        Kanal görünürlüğünü günceller ve lejandı senkronize eder.
-        """
         if fam_visible is not None:
             self.fam_line.set_visible(bool(fam_visible))
         if hex_visible is not None:
@@ -230,7 +208,6 @@ class PCRGraphView(FigureCanvas):
         self.draw_idle()
 
     def _refresh_legend(self) -> None:
-        """Yalnızca görünür hatları içeren lejantı yeniden oluştur."""
         legend = self.ax.get_legend()
         if legend:
             legend.remove()
@@ -241,10 +218,14 @@ class PCRGraphView(FigureCanvas):
         ]
         visible_handles = [(h, label) for h, label in handles_labels if h.get_visible()]
 
-        if visible_handles:
-            handles, labels = zip(*visible_handles)
-            legend = self.ax.legend(handles, labels)
-            for text in legend.get_texts():
-                text.set_color("white")
-            legend.get_frame().set_facecolor("#202020")
-            legend.get_frame().set_edgecolor("white")
+        if not visible_handles:
+            return
+
+        handles, labels = zip(*visible_handles)
+        legend = self.ax.legend(handles, labels)
+
+        s = self._style
+        for text in legend.get_texts():
+            text.set_color(s.legend_text_color)
+        legend.get_frame().set_facecolor(s.legend_frame_facecolor)
+        legend.get_frame().set_edgecolor(s.legend_frame_edgecolor)
