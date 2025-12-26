@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Optional, Set
 
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor, QPainter, QPen
+from PyQt5.QtCore import QPoint, Qt
+from PyQt5.QtGui import QColor, QPainter, QPen, QPolygon
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QWidget, QVBoxLayout
 
 from app.services.interaction_store import InteractionStore
@@ -19,6 +19,41 @@ class _PlateTable(QTableWidget):
 
     def paintEvent(self, event):
         super().paintEvent(event)
+
+        painter = QPainter(self.viewport())
+        painter.setRenderHint(QPainter.Antialiasing, True)
+
+        self._draw_corner_indicator(painter)
+        self._draw_hover_highlight(painter)
+
+        painter.end()
+
+    def _draw_corner_indicator(self, painter: QPainter) -> None:
+        corner_index = self.model().index(0, 0)
+        rect = self.visualRect(corner_index)
+        if not rect.isValid():
+            return
+
+        size = min(rect.width(), rect.height())
+        if size <= 0:
+            return
+
+        triangle_size = max(6, size // 3)
+        triangle = QPolygon(
+            [
+                rect.topLeft(),
+                rect.topLeft() + QPoint(triangle_size, 0),
+                rect.topLeft() + QPoint(0, triangle_size),
+            ]
+        )
+
+        painter.save()
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#999"))
+        painter.drawPolygon(triangle)
+        painter.restore()
+
+    def _draw_hover_highlight(self, painter: QPainter) -> None:
         row, col = self._hover_index_getter()
         if row is None or col is None:
             return
@@ -27,11 +62,11 @@ class _PlateTable(QTableWidget):
         if not rect.isValid():
             return
 
-        painter = QPainter(self.viewport())
+        painter.save()
         pen = QPen(Qt.red, 2)
         painter.setPen(pen)
         painter.drawRect(rect.adjusted(1, 1, -1, -1))
-        painter.end()
+        painter.restore()
 
     def mouseMoveEvent(self, event):
         self._on_hover_move(event)
@@ -58,6 +93,8 @@ class PCRPlateWidget(QWidget):
     COLOR_SELECTED = QColor("#3A7AFE")  # mavi
     COLOR_BASE = QColor("#f2f2f2")
     COLOR_HEADER = QColor("#d9d9d9")
+    MIN_COLUMN_WIDTH = 40
+    ROW_HEIGHT = 32
 
     def __init__(self, original_widget: QWidget, parent: QWidget | None = None):
         super().__init__(parent or original_widget.parent())
@@ -84,6 +121,9 @@ class PCRPlateWidget(QWidget):
         self.table.setFocusPolicy(Qt.NoFocus)
         self.table.verticalHeader().setVisible(False)
         self.table.horizontalHeader().setVisible(False)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -109,6 +149,17 @@ class PCRPlateWidget(QWidget):
 
     # ---- setup ----
     def _setup_grid(self) -> None:
+        self.table.setFrameShape(self.table.NoFrame)
+        self.table.setLineWidth(0)
+        self.table.setMidLineWidth(0)
+
+        # viewport'un ve table'ın iç padding'ini sıfırla (style kaynaklı boşlukları temizler)
+        self.table.setStyleSheet("""
+        QTableWidget { border: 0px; padding: 0px; }
+        QTableWidget::item { padding: 0px; margin: 0px; }
+        QTableWidget QAbstractScrollArea::viewport { border: 0px; padding: 0px; }
+        """)
+
         self.table.setRowCount(len(well_mapping.ROWS) + self.HEADER_ROWS)
         self.table.setColumnCount(len(well_mapping.COLUMNS) + self.HEADER_COLS)
 
@@ -121,12 +172,13 @@ class PCRPlateWidget(QWidget):
         self._populate_headers()
         self._populate_cells()
         self._apply_base_colors()
+        self._resize_columns_to_fit()
 
     def _populate_headers(self) -> None:
         # (0,0)
         corner = self.table.item(0, 0)
         if corner:
-            corner.setText("Plate")
+            corner.setText("")
 
         # kolon header'ları (1-12)
         for idx, col in enumerate(well_mapping.COLUMNS, start=1):
@@ -145,7 +197,10 @@ class PCRPlateWidget(QWidget):
             for col_idx, col in enumerate(well_mapping.COLUMNS, start=1):
                 item = self.table.item(row_idx, col_idx)
                 if item:
-                    item.setText(f"{row_label}{col:02d}")
+                    patient_no = self._table_index_to_patient_no(row_idx, col_idx)
+                    item.setText(str(patient_no))
+
+        self._set_row_heights()
 
     # ---- mouse events ----
     def _handle_mouse_move(self, event):
@@ -173,18 +228,20 @@ class PCRPlateWidget(QWidget):
         else:
             self._store.set_selection(wells)
 
-    # ---- store listeners ----
-    def _on_selection_changed(self, wells: Set[str]) -> None:
-        self._apply_base_colors()
-        for well in wells:
-            row, col = well_mapping.well_id_to_table_index(well)
-            item = self.table.item(row, col)
-            if item:
-                item.setBackground(self.COLOR_SELECTED)
+    def _on_selection_changed(self, selected_wells: Set[str]) -> None:
+        for row in range(self.HEADER_ROWS, self.table.rowCount()):
+            for col in range(self.HEADER_COLS, self.table.columnCount()):
+                well = well_mapping.table_index_to_well_id(row, col)
+                item = self.table.item(row, col)
+                if item and well:
+                    if well in selected_wells:
+                        item.setBackground(self.COLOR_SELECTED)
+                        item.setForeground(Qt.white)
+                    else:
+                        item.setBackground(self.COLOR_BASE)
+                        item.setForeground(Qt.black)
 
-        self.table.viewport().update()
-
-    def _on_hover_changed(self, well: Optional[str]) -> None:
+    def _on_hover_changed(self, well: str | None) -> None:
         if well is None:
             self._hover_row = None
             self._hover_col = None
@@ -211,3 +268,38 @@ class PCRPlateWidget(QWidget):
 
     def _get_hover_index(self):
         return self._hover_row, self._hover_col
+
+    def _table_index_to_patient_no(self, row: int, column: int) -> int:
+        well_id = well_mapping.table_index_to_well_id(row, column)
+        if well_id is None:
+            raise ValueError(f"Invalid table index for patient number: ({row}, {column})")
+        return well_mapping.well_id_to_patient_no(well_id)
+
+    def _set_row_heights(self) -> None:
+        for row in range(self.table.rowCount()):
+            self.table.setRowHeight(row, self.ROW_HEIGHT)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._resize_columns_to_fit()
+
+    def _resize_columns_to_fit(self) -> None:
+        n = self.table.columnCount()
+        if n == 0:
+            return
+
+        vp = self.table.viewport()
+        avail = vp.width()
+        if avail <= 0:
+            return
+
+        # İlk n-1 kolonu eşit dağıt
+        base = max(1, avail // n)
+        for c in range(n - 1):
+            self.table.setColumnWidth(c, base)
+
+        used = sum(self.table.columnWidth(c) for c in range(n - 1))
+
+        # Son kolon kalan neyse o
+        last = max(1, avail - used)
+        self.table.setColumnWidth(n - 1, last)
