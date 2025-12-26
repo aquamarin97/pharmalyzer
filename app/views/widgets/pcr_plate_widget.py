@@ -5,6 +5,7 @@ from typing import Optional, Set
 from PyQt5.QtCore import QPoint, Qt, QTimer
 from PyQt5.QtGui import QColor, QPainter, QPen, QPolygon
 from PyQt5.QtWidgets import QHeaderView, QTableWidget, QTableWidgetItem, QWidget, QVBoxLayout
+from PyQt5.QtGui import QLinearGradient
 
 from app.services.interaction_store import InteractionStore
 from app.utils import well_mapping
@@ -16,6 +17,8 @@ class _PlateTable(QTableWidget):
         self._hover_index_getter = hover_index_getter
         self._on_hover_move = on_hover_move
         self._on_mouse_press = on_mouse_press
+        self._selected_header_rows = set()
+        self._selected_header_cols = set()
 
     def paintEvent(self, event):
         super().paintEvent(event)
@@ -24,9 +27,48 @@ class _PlateTable(QTableWidget):
         painter.setRenderHint(QPainter.Antialiasing, True)
 
         self._draw_corner_indicator(painter)
+        self._draw_header_selection(painter)
         self._draw_hover_highlight(painter)
-
         painter.end()
+
+    def _draw_header_selection(self, painter: QPainter) -> None:
+        if not getattr(self, "_selected_header_rows", None) and not getattr(self, "_selected_header_cols", None):
+            return
+
+        painter.save()
+
+        accent = QColor("#3A7AFE")  # seçimin ana rengi
+        tint = QColor(58, 122, 254, 55)   # yarı saydam mavi overlay
+        underline = QColor(58, 122, 254, 180)
+
+        # Row header (col=0, row>0)
+        for r in getattr(self, "_selected_header_rows", set()):
+            idx = self.model().index(r, 0)
+            rect = self.visualRect(idx)
+            if rect.isValid():
+                rr = rect.adjusted(1, 1, -1, -1)
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(tint)
+                painter.drawRect(rr)
+
+                painter.setPen(QPen(underline, 2))
+                painter.drawLine(rr.bottomLeft(), rr.bottomRight())
+
+        # Col header (row=0, col>0)
+        for c in getattr(self, "_selected_header_cols", set()):
+            idx = self.model().index(0, c)
+            rect = self.visualRect(idx)
+            if rect.isValid():
+                rr = rect.adjusted(1, 1, -1, -1)
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(tint)
+                painter.drawRect(rr)
+
+                painter.setPen(QPen(underline, 2))
+                painter.drawLine(rr.bottomLeft(), rr.bottomRight())
+
+        painter.restore()
+
 
     def _draw_corner_indicator(self, painter: QPainter) -> None:
         corner_index = self.model().index(0, 0)
@@ -57,15 +99,42 @@ class _PlateTable(QTableWidget):
         row, col = self._hover_index_getter()
         if row is None or col is None:
             return
+
         model_index = self.model().index(row, col)
         rect = self.visualRect(model_index)
         if not rect.isValid():
             return
 
         painter.save()
-        pen = QPen(Qt.red, 2)
-        painter.setPen(pen)
-        painter.drawRect(rect.adjusted(1, 1, -1, -1))
+
+        is_header = (row == 0 or col == 0)
+        if is_header:
+            r = rect.adjusted(1, 1, -1, -1)
+
+            # Gradient overlay (üst daha parlak)
+            grad = QLinearGradient(r.topLeft(), r.bottomLeft())
+            grad.setColorAt(0.0, QColor(255, 255, 255, 110))
+            grad.setColorAt(1.0, QColor(255, 255, 255, 40))
+
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(grad)
+            painter.drawRect(r)
+
+            # Outer stroke (çok hafif)
+            painter.setBrush(Qt.NoBrush)
+            painter.setPen(QPen(QColor(0, 0, 0, 55), 1))
+            painter.drawRect(r)
+
+            # Inner stroke (premium cam hissi)
+            painter.setPen(QPen(QColor(255, 255, 255, 90), 1))
+            painter.drawRect(r.adjusted(1, 1, -1, -1))
+        else:
+            # ✅ Body hücreleri: mevcut kırmızı çerçeve devam
+            pen = QPen(Qt.red, 2)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRect(rect.adjusted(1, 1, -1, -1))
+
         painter.restore()
 
     def mouseMoveEvent(self, event):
@@ -191,14 +260,27 @@ class PCRPlateWidget(QWidget):
 
     # ---- mouse events ----
     def _handle_mouse_move(self, event):
-        if self._store is None:
-            return
         if event is None:
-            self._store.set_hover(None)
+            self._hover_row = None
+            self._hover_col = None
+            if self._store is not None:
+                self._store.set_hover(None)
+            self.table.viewport().update()
             return
+
         idx = self.table.indexAt(event.pos())
-        well = well_mapping.table_index_to_well_id(idx.row(), idx.column())
-        self._store.set_hover(well)
+        if not idx.isValid():
+            return
+
+        # ✅ header dahil her hücrede hover index’i güncelle
+        self._hover_row, self._hover_col = idx.row(), idx.column()
+
+        # ✅ sadece body hücreleri için store hover (well) güncelle
+        if self._store is not None:
+            well = well_mapping.table_index_to_well_id(idx.row(), idx.column())
+            self._store.set_hover(well)  # well None ise None olur, sorun değil
+
+        self.table.viewport().update()
 
     def _handle_mouse_press(self, event):
         if self._store is None or event.button() != Qt.LeftButton:
@@ -227,6 +309,18 @@ class PCRPlateWidget(QWidget):
                     else:
                         item.setBackground(self.COLOR_BASE)
                         item.setForeground(Qt.black)
+        selected_rows = set()
+        selected_cols = set()
+
+        for well in selected_wells:
+            r, c = well_mapping.well_id_to_table_index(well)
+            selected_rows.add(r)
+            selected_cols.add(c)
+
+        self.table._selected_header_rows = selected_rows
+        self.table._selected_header_cols = selected_cols
+        self.table.viewport().update()
+
 
     def _on_hover_changed(self, well: str | None) -> None:
         if well is None:
