@@ -71,6 +71,14 @@ class CalculateWithoutReferance:
         clusters, clustered_data = self._cluster_ct_values(valid_data)
         initial_static_value = self._compute_initial_static_value(clusters, clustered_data)
         optimized_static_value = self._optimize_delta_ct(clustered_data, initial_static_value)
+        optimized_static_value = float(optimized_static_value)
+        logger.info(
+            "FINAL static_value=%.6f | ΔCt min=%.3f mean=%.3f max=%.3f",
+            optimized_static_value,
+            valid_data["Δ Ct"].min(),
+            valid_data["Δ Ct"].mean(),
+            valid_data["Δ Ct"].max(),
+        )
         return float(optimized_static_value)
 
     @staticmethod
@@ -96,7 +104,7 @@ class CalculateWithoutReferance:
 
     # --- helpers ---
 
-    def _cluster_ct_values(self, valid_data: pd.DataFrame, n_clusters: int = 5):
+    def _cluster_ct_values(self, valid_data: pd.DataFrame, n_clusters: int = 3):
         delta_ct_values = valid_data[["Δ Ct"]].values
         kmeans = KMeans(n_clusters=n_clusters, random_state=42)
         valid_data = valid_data.copy()
@@ -106,7 +114,7 @@ class CalculateWithoutReferance:
         counts = valid_data["Cluster"].value_counts().sort_index()
 
         sorted_clusters = sorted(zip(centers, counts), key=lambda x: x[0])
-        logger.debug("KMeans centers=%s counts=%s", centers.tolist(), counts.to_dict())
+        print("KMeans centers=%s counts=%s", centers.tolist(), counts.to_dict())
         return sorted_clusters, valid_data
 
     def _compute_initial_static_value(self, clusters, valid_data: pd.DataFrame) -> float:
@@ -183,5 +191,17 @@ class CalculateWithoutReferance:
             df.loc[(df["İstatistik Oranı"] > 0.75) & (df["İstatistik Oranı"] < 1), "İstatistik Oranı"] += diff
         elif diff < 0:
             df.loc[df["İstatistik Oranı"] < 0.7, "İstatistik Oranı"] += diff  # diff negatif
+
+        logger.info(
+            "ADJUST decision | healthy_avg=%.6f diff=%.6f",
+            healthy_avg,
+            diff
+        )
+
+        logger.info(
+            "ADJUST eligible counts | (0.75<r<1)=%d | (r<0.7)=%d",
+            df[(df["İstatistik Oranı"] > 0.75) & (df["İstatistik Oranı"] < 1)].shape[0],
+            df[df["İstatistik Oranı"] < 0.7].shape[0],
+        )
 
         return df

@@ -97,7 +97,7 @@ class AnalysisService:
                         t0 = time.perf_counter()
                         out = fn(df)
                         t1 = time.perf_counter()
-                        logger.info("[PERF] Step '%s' took %.0f ms", name, (t1 - t0) * 1000)
+                        # logger.info("[PERF] Step '%s' took %.0f ms", name, (t1 - t0) * 1000)
                         return out
                     return _inner
                 timed_steps.append(Step(s.name, _wrap(s.fn, s.name)))
