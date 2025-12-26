@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Optional, Set
 
-from PyQt5.QtCore import QPoint, Qt
+from PyQt5.QtCore import QPoint, Qt, QTimer
 from PyQt5.QtGui import QColor, QPainter, QPen, QPolygon
-from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QWidget, QVBoxLayout
+from PyQt5.QtWidgets import QHeaderView, QTableWidget, QTableWidgetItem, QWidget, QVBoxLayout
 
 from app.services.interaction_store import InteractionStore
 from app.utils import well_mapping
@@ -38,7 +38,7 @@ class _PlateTable(QTableWidget):
         if size <= 0:
             return
 
-        triangle_size = max(6, size // 3)
+        triangle_size = max(8, int(size * 0.6))
         triangle = QPolygon(
             [
                 rect.topLeft(),
@@ -49,7 +49,7 @@ class _PlateTable(QTableWidget):
 
         painter.save()
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor("#999"))
+        painter.setBrush(QColor("#4ca1af"))
         painter.drawPolygon(triangle)
         painter.restore()
 
@@ -103,7 +103,6 @@ class PCRPlateWidget(QWidget):
         self.setSizePolicy(original_widget.sizePolicy())
         self.setMinimumSize(original_widget.minimumSize())
         self.setMaximumSize(original_widget.maximumSize())
-        self.setStyleSheet(original_widget.styleSheet())
 
         self._store: InteractionStore | None = None
         self._hover_row: int | None = None
@@ -122,8 +121,7 @@ class PCRPlateWidget(QWidget):
         self.table.verticalHeader().setVisible(False)
         self.table.horizontalHeader().setVisible(False)
         self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-
+        self._configure_headers()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -149,17 +147,6 @@ class PCRPlateWidget(QWidget):
 
     # ---- setup ----
     def _setup_grid(self) -> None:
-        self.table.setFrameShape(self.table.NoFrame)
-        self.table.setLineWidth(0)
-        self.table.setMidLineWidth(0)
-
-        # viewport'un ve table'ın iç padding'ini sıfırla (style kaynaklı boşlukları temizler)
-        self.table.setStyleSheet("""
-        QTableWidget { border: 0px; padding: 0px; }
-        QTableWidget::item { padding: 0px; margin: 0px; }
-        QTableWidget QAbstractScrollArea::viewport { border: 0px; padding: 0px; }
-        """)
-
         self.table.setRowCount(len(well_mapping.ROWS) + self.HEADER_ROWS)
         self.table.setColumnCount(len(well_mapping.COLUMNS) + self.HEADER_COLS)
 
@@ -279,27 +266,42 @@ class PCRPlateWidget(QWidget):
         for row in range(self.table.rowCount()):
             self.table.setRowHeight(row, self.ROW_HEIGHT)
 
+    def _configure_headers(self) -> None:
+        h_header = self.table.horizontalHeader()
+        h_header.setSectionResizeMode(QHeaderView.Fixed)
+        h_header.setMinimumSectionSize(1)
+        h_header.setDefaultSectionSize(self.MIN_COLUMN_WIDTH)
+
+        v_header = self.table.verticalHeader()
+        v_header.setSectionResizeMode(QHeaderView.Fixed)
+        v_header.setMinimumSectionSize(self.ROW_HEIGHT)
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._resize_columns_to_fit()
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        QTimer.singleShot(0, self._resize_columns_to_fit)
+
     def _resize_columns_to_fit(self) -> None:
-        n = self.table.columnCount()
-        if n == 0:
+        column_count = self.table.columnCount()
+        if column_count == 0:
             return
 
-        vp = self.table.viewport()
-        avail = vp.width()
-        if avail <= 0:
+        available_width = self.table.viewport().width()
+        if available_width <= 0:
+            available_width = self.table.width()
+
+        if available_width <= 0:
             return
 
-        # İlk n-1 kolonu eşit dağıt
-        base = max(1, avail // n)
-        for c in range(n - 1):
-            self.table.setColumnWidth(c, base)
+        # prefer readable width but prioritize fitting without scrollbars
+        target_width = max(self.MIN_COLUMN_WIDTH, available_width // column_count)
+        if target_width * column_count > available_width:
+            target_width = max(1, available_width // column_count)
 
-        used = sum(self.table.columnWidth(c) for c in range(n - 1))
-
-        # Son kolon kalan neyse o
-        last = max(1, avail - used)
-        self.table.setColumnWidth(n - 1, last)
+        remainder = available_width - target_width * column_count
+        for col in range(column_count):
+            width = target_width + (1 if col < remainder else 0)
+            self.table.setColumnWidth(col, width)
