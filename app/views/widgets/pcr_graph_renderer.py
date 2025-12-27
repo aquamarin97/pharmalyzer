@@ -242,8 +242,8 @@ class PCRGraphRenderer(FigureCanvas):
             interactive=False,
             props={"edgecolor": "red", "facecolor": "none", "linewidth": 1},
         )
-        self._rect_selector.connect_event("press_event", self._on_rect_press)
-        self._rect_selector.connect_event("release_event", self._on_rect_release)
+        self._rect_selector.connect_event("button_press_event", self._on_rect_press)
+        self._rect_selector.connect_event("button_release_event", self._on_rect_release)
 
     def _on_motion(self, event) -> None:
         if self._rect_selecting:
