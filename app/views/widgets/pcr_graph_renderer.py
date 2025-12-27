@@ -1,13 +1,12 @@
 # app\views\widgets\pcr_graph_renderer.py
 from __future__ import annotations
 
-from typing import Dict, List, Optional
-
-from matplotlib import cm
+from typing import Dict, List, Optional, Set
+from matplotlib.widgets import RectangleSelector
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
-
+from app.services.interaction_store import InteractionStore
 from app.constants.pcr_graph_style import PCRGraphStyle
 from app.services.graph.pcr_graph_layout_service import PCRGraphLayoutService, Coord
 from app.services.pcr_data_service import PCRCoords
@@ -35,13 +34,23 @@ class PCRGraphRenderer(FigureCanvas):
         self._fam_visible = True
         self._hex_visible = True
 
-        self._setup_axes()
+        self._line_to_well: Dict[Line2D, str] = {}
+        self._store: InteractionStore | None = None
+        self._selecting: bool = False
+        self._selection_buffer: Set[str] = set()
+        self._rect_selector: RectangleSelector | None = None
+        self._rect_selecting: bool = False
 
+       
+        self._setup_axes()
+        self._connect_events()
+        
     # ---- lifecycle ----
     def reset(self) -> None:
         """Grafiği temizle ve varsayılan stile dön."""
         self._fam_lines.clear()
         self._hex_lines.clear()
+        self._line_to_well.clear()
         self.ax.clear()
         self._setup_axes()
         self.ax.set_title(self._title)
@@ -61,7 +70,8 @@ class PCRGraphRenderer(FigureCanvas):
         """
         self._fam_lines.clear()
         self._hex_lines.clear()
-
+        self._line_to_well.clear()
+        
         self.ax.clear()
         self._setup_axes()
 
@@ -112,9 +122,15 @@ class PCRGraphRenderer(FigureCanvas):
 
             fam_line.set_visible(self._fam_visible)
             hex_line.set_visible(self._hex_visible)
+            fam_line.set_picker(5)
+            hex_line.set_picker(5)
+
 
             self._fam_lines[well] = fam_line
             self._hex_lines[well] = hex_line
+
+            self._line_to_well[fam_line] = well
+            self._line_to_well[hex_line] = well
 
         self._apply_ylim(fam_all, hex_all)
         self._apply_hover_highlight()
@@ -166,6 +182,10 @@ class PCRGraphRenderer(FigureCanvas):
             line.set_alpha(base_alpha * 1)
             line.set_linewidth(base_width)
 
+    def bind_interaction_store(self, store: InteractionStore | None) -> None:
+        """Grafik etkileşimlerini InteractionStore ile köprüle."""
+        self._store = store
+
     # ---- visibility ----
     def set_channel_visibility(self, fam_visible: bool | None = None, hex_visible: bool | None = None) -> None:
         if fam_visible is not None:
@@ -207,7 +227,139 @@ class PCRGraphRenderer(FigureCanvas):
         self.ax.axhline(y=0, color=s.grid_color, linestyle="-", linewidth=1)
         self.ax.axvline(x=0, color=s.grid_color, linestyle="-", linewidth=1)
         for spine in self.ax.spines.values():
-            spine.set_color(s.grid_color)
+            spine.set_color(s.grid_color)  
+            
+    # ---- events ----
+    def _connect_events(self) -> None:
+        self.mpl_connect("motion_notify_event", self._on_motion)
+        self.mpl_connect("button_press_event", self._on_button_press)
+        self.mpl_connect("button_release_event", self._on_button_release)
+        self._rect_selector = RectangleSelector(
+            self.ax,
+            self._on_rectangle_select,
+            useblit=True,
+            button=[1],
+            interactive=False,
+            props={"edgecolor": "red", "facecolor": "none", "linewidth": 1},
+        )
+        self._rect_selector.connect_event("press_event", self._on_rect_press)
+        self._rect_selector.connect_event("release_event", self._on_rect_release)
+
+    def _on_motion(self, event) -> None:
+        if self._rect_selecting:
+            return
+
+        if event.inaxes != self.ax:
+            self._apply_hover_from_graph(None)
+            return
+
+        well = self._find_well_at_event(event)
+        self._apply_hover_from_graph(well)
+
+        if self._selecting and well:
+            self._add_to_selection(well)
+
+    def _on_button_press(self, event) -> None:
+        if event.button != 1:
+            return
+        if self._rect_selecting:
+            return
+        self._selecting = True
+        self._selection_buffer.clear()
+
+        well = self._find_well_at_event(event)
+        if well:
+            self._add_to_selection(well)
+        elif self._store is not None:
+            self._store.clear_selection()
+
+    def _on_button_release(self, event) -> None:
+        if event.button != 1:
+            return
+        if self._rect_selecting:
+            return
+        self._selecting = False
+        if not self._selection_buffer and self._store is not None:
+            self._store.clear_selection()
+        self._selection_buffer.clear()
+
+    def _on_rect_press(self, event) -> None:
+        if event.button != 1:
+            return
+        self._rect_selecting = True
+        self._selection_buffer.clear()
+
+    def _on_rect_release(self, event) -> None:
+        if event.button != 1:
+            return
+        self._rect_selecting = False
+
+    def _on_rectangle_select(self, eclick, erelease) -> None:
+        if self._store is None:
+            return
+
+        if eclick.xdata is None or erelease.xdata is None or eclick.ydata is None or erelease.ydata is None:
+            return
+
+        x0, x1 = sorted([eclick.xdata, erelease.xdata])
+        y0, y1 = sorted([eclick.ydata, erelease.ydata])
+
+        wells_in_rect: Set[str] = set()
+        for line, well in self._line_to_well.items():
+            if not line.get_visible():
+                continue
+            x_data = line.get_xdata(orig=False)
+            y_data = line.get_ydata(orig=False)
+            for x, y in zip(x_data, y_data):
+                if x is None or y is None:
+                    continue
+                if x0 <= x <= x1 and y0 <= y <= y1:
+                    wells_in_rect.add(well)
+                    break
+
+        ctrl_pressed = bool(
+            (eclick.key and "control" in str(eclick.key).lower())
+            or (erelease.key and "control" in str(erelease.key).lower())
+        )
+
+        if not wells_in_rect and not ctrl_pressed:
+            self._store.clear_selection()
+            return
+
+        if ctrl_pressed:
+            updated = set(self._store.selected_wells)
+            updated.update(wells_in_rect)
+            self._store.set_selection(updated)
+        else:
+            self._store.set_selection(wells_in_rect)
+
+    def _apply_hover_from_graph(self, well: Optional[str]) -> None:
+        if self._store is not None:
+            self._store.set_hover(well)
+        else:
+            self.set_hover(well)
+
+    def _add_to_selection(self, well: str) -> None:
+        if well in self._selection_buffer:
+            return
+        self._selection_buffer.add(well)
+        if self._store is None:
+            return
+
+        updated = set(self._store.selected_wells)
+        updated.add(well)
+        self._store.set_selection(updated)
+
+    def _find_well_at_event(self, event) -> Optional[str]:
+        for line, well in self._line_to_well.items():
+            if not line.get_visible():
+                continue
+            contains, _ = line.contains(event)
+            if contains:
+                return well
+        return None
+
+            
     def _refresh_legend(self) -> None:
         legend = self.ax.get_legend()
         if legend:

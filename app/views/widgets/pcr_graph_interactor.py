@@ -26,6 +26,7 @@ class PCRGraphInteractor:
     def set_interaction_store(self, store: InteractionStore, data_service: PCRDataService | None = None) -> None:
         self._disconnect_store()
         self.store = store
+        self.renderer.bind_interaction_store(store)
         if data_service is not None:
             self.data_service = data_service
 
@@ -78,6 +79,7 @@ class PCRGraphInteractor:
         try:
             self.store.selectedChanged.disconnect(self._on_selection_changed)
             self.store.hoverChanged.disconnect(self._on_hover_changed)
+            self.renderer.bind_interaction_store(None)
         except Exception:
             # Qt disconnect'i sessizce geçebilir; exception'a gerek yok
             pass

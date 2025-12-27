@@ -1,5 +1,4 @@
 # app\views\widgets\pcr_graph_view.py
-# app/views/widgets/pcr_graph_view.py
 from __future__ import annotations
 
 from app.constants.pcr_graph_style import PCRGraphStyle

@@ -1,6 +1,4 @@
 # app\views\widgets\regression_graph_view.py
-# app/views/widgets/regression_graph_view.py
-
 
 from __future__ import annotations
 from PyQt5.QtCore import Qt
@@ -40,13 +38,9 @@ class RegressionGraphView(QWidget):
         self._renderer = PyqtgraphRegressionRenderer(style=self._style)
         self._store: InteractionStore | None = None
         self._last_data = None
+        self._view_box = self.plot_item.getViewBox()
 
-        hmax = self.plot_widget.horizontalScrollBar().maximum()
-        vmax = self.plot_widget.verticalScrollBar().maximum()
-        print("QGraphicsView scroll max:", hmax, vmax)
-
-        vb = self.plot_item.getViewBox()
-        print("ViewBox range:", vb.viewRange())
+        self._view_box.sigRangeChanged.connect(self._on_range_changed)
 
         self._apply_theme_and_setup()
 
@@ -66,15 +60,21 @@ class RegressionGraphView(QWidget):
 
     def _apply_theme_and_setup(self) -> None:
         self.plot_widget.setBackground(self._style.widget_background_rgb)
-        view_box = self.plot_item.getViewBox()
+        view_box = self._view_box
         view_box.setBackgroundColor(self._style.background_hex)
-        
-        # Etkileşim ve sınır kısıtlamaları
+
         view_box.setMouseEnabled(x=False, y=False)
-        view_box.setLimits(xMin=0, xMax=1.1, yMin=0, yMax=1.1)
-        self.plot_item.setXRange(0, 1.1, padding=30)
-        self.plot_item.setYRange(0, 1.1, padding=30)
-        self.plot_item.setDefaultPadding(0)
+
+        view_box.setLimits(
+            xMin=0,
+            xMax=1.1,
+            yMin=0,
+            yMax=1.1,
+            maxXRange=1.1,
+            maxYRange=1.1,
+        )
+        self.plot_item.setRange(xRange=(0, 1.1), yRange=(0, 1.1), padding=0.0)
+        self.plot_item.setDefaultPadding(0.0)
 
         self.plot_item.showGrid(x=True, y=True, alpha=self._style.grid_alpha)
 
@@ -105,9 +105,7 @@ class RegressionGraphView(QWidget):
         if self._store:
             self._renderer.update_styles(self._store.selected_wells, self._store.hover_well)
         
-        # Veri geldikten sonra aralığı tekrar zorla
-        self.plot_item.setXRange(0, 1.1, padding=30)
-        self.plot_item.setYRange(0, 1.1, padding=30)
+        self._enforce_max_zoom_out()
 
     def reset(self):
         self._renderer.detach_hover()
@@ -115,6 +113,39 @@ class RegressionGraphView(QWidget):
         self.plot_item.addItem(self._hover_text)
         self._hover_text.hide()
         self._apply_theme_and_setup()
+    def _enforce_max_zoom_out(self) -> None:
+        """Görünümün 0..1.1 aralığında kalmasını ve daha fazla uzaklaşmamasını sağlar."""
+        x_range = self.plot_item.getAxis("bottom").range
+        y_range = self.plot_item.getAxis("left").range
+        self._set_range_clamped(x_range, y_range)
+
+    def _on_range_changed(self, view_box, ranges) -> None:
+        """Range değişikliklerini dinleyip sınırlar dışına çıkmayı engeller."""
+        x_range, y_range = ranges
+        self._set_range_clamped(x_range, y_range)
+
+    def _set_range_clamped(self, x_range, y_range) -> None:
+        x0, x1 = self._clamp_range(x_range)
+        y0, y1 = self._clamp_range(y_range)
+        # Range update'ı yeniden sinyal yaymasın diye sinyalleri geçici kapat
+        self._view_box.blockSignals(True)
+        self.plot_item.setRange(xRange=(x0, x1), yRange=(y0, y1), padding=0.0, disableAutoRange=True)
+        self._view_box.blockSignals(False)
+
+    @staticmethod
+    def _clamp_range(rng):
+        min_bound, max_bound = 0.0, 1.1
+        max_span = max_bound - min_bound
+        min_span = 1e-6
+        span = max(rng[1] - rng[0], 0.0)
+        span = min(span, max_span)
+        span = max(span, min_span)
+        start = max(min(rng[0], max_bound - span), min_bound)
+        end = start + span
+        if end > max_bound:
+            end = max_bound
+            start = end - span
+        return start, end
 
     def _on_store_selection_changed(self, wells):
         self._renderer.update_styles(wells, self._store.hover_well if self._store else None)
