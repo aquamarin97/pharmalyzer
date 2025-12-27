@@ -40,7 +40,7 @@ class PCRGraphRenderer(FigureCanvas):
         self._selection_buffer: Set[str] = set()
         self._rect_selector: RectangleSelector | None = None
         self._rect_selecting: bool = False
-
+        self._rect_preview_wells: Set[str] = set()
        
         self._setup_axes()
         self._connect_events()
@@ -133,7 +133,7 @@ class PCRGraphRenderer(FigureCanvas):
             self._line_to_well[hex_line] = well
 
         self._apply_ylim(fam_all, hex_all)
-        self._apply_hover_highlight()
+        self._apply_interaction_styles()
         self._refresh_legend()
         self.ax.set_title(self._title)
         self.draw_idle()
@@ -154,33 +154,51 @@ class PCRGraphRenderer(FigureCanvas):
 
     def set_hover(self, well: Optional[str]) -> None:
         self._hover_well = well if well_mapping.is_valid_well_id(well) else None
-        self._apply_hover_highlight()
+        self._apply_interaction_styles()
         self.draw_idle()
 
-    def _apply_hover_highlight(self) -> None:
+    def _apply_interaction_styles(self) -> None:
         if not self._fam_lines and not self._hex_lines:
             return
 
         hovered = self._hover_well
+        selected = self._collect_selected_wells()
+        preview = self._rect_preview_wells
+        
         for well, line in self._fam_lines.items():
-            self._style_line(line, hovered, well, channel="fam")
+            self._style_line(line, hovered, selected, preview, well, channel="fam")
         for well, line in self._hex_lines.items():
-            self._style_line(line, hovered, well, channel="hex")
+            self._style_line(line, hovered, selected, preview, well, channel="hex")
 
-    def _style_line(self, line: Line2D, hovered: Optional[str], well: str, channel: str) -> None:
+    def _style_line(
+        self,
+        line: Line2D,
+        hovered: Optional[str],
+        selected: Set[str],
+        preview: Set[str],
+        well: str,
+        channel: str,
+    ) -> None:
         base_alpha = self._style.fam_pen.get("alpha", 1.0) if channel == "fam" else self._style.hex_pen.get("alpha", 1.0)
         base_width = float(self._style.fam_pen.get("linewidth", 2.0)) if channel == "fam" else float(self._style.hex_pen.get("linewidth", 2.0))
-        if hovered is None:
-            line.set_alpha(base_alpha)
-            line.set_linewidth(base_width)
-            return
 
         if well == hovered:
             line.set_alpha(1.0)
             line.set_linewidth(base_width + 1.2)
-        else:
-            line.set_alpha(base_alpha * 1)
-            line.set_linewidth(base_width)
+            return
+
+        if well in preview:
+            line.set_alpha(1.0)
+            line.set_linewidth(base_width + 1.2)
+            return
+
+        if well in selected:
+            line.set_alpha(1.0)
+            line.set_linewidth(base_width + 0.8)
+            return
+
+        line.set_alpha(base_alpha)
+        line.set_linewidth(base_width)
 
     def bind_interaction_store(self, store: InteractionStore | None) -> None:
         """Grafik etkileşimlerini InteractionStore ile köprüle."""
@@ -244,7 +262,8 @@ class PCRGraphRenderer(FigureCanvas):
         )
         self._rect_selector.connect_event("button_press_event", self._on_rect_press)
         self._rect_selector.connect_event("button_release_event", self._on_rect_release)
-
+        self._rect_selector.connect_event("motion_notify_event", self._on_rect_motion)
+        
     def _on_motion(self, event) -> None:
         if self._rect_selecting:
             return
@@ -288,12 +307,30 @@ class PCRGraphRenderer(FigureCanvas):
         self._rect_selecting = True
         self._selecting = False
         self._selection_buffer.clear()
-
+        self._set_rect_preview(set())
+        
+        
     def _on_rect_release(self, event) -> None:
         if event.button != 1:
             return
         self._rect_selecting = False
         self._selecting = False
+        self._set_rect_preview(set())
+
+    def _on_rect_motion(self, event) -> None:
+        if not self._rect_selecting:
+            return
+
+        if self._rect_selector is None:
+            return
+
+        x0, x1, y0, y1 = self._rect_selector.extents
+        if any(v is None for v in (x0, x1, y0, y1)):
+            self._set_rect_preview(set())
+            return
+
+        wells_in_rect = self._find_wells_in_rect(x0, x1, y0, y1)
+        self._set_rect_preview(wells_in_rect)
     def _on_rectangle_select(self, eclick, erelease) -> None:
         if self._store is None:
             return
@@ -304,18 +341,7 @@ class PCRGraphRenderer(FigureCanvas):
         x0, x1 = sorted([eclick.xdata, erelease.xdata])
         y0, y1 = sorted([eclick.ydata, erelease.ydata])
 
-        wells_in_rect: Set[str] = set()
-        for line, well in self._line_to_well.items():
-            if not line.get_visible():
-                continue
-            x_data = line.get_xdata(orig=False)
-            y_data = line.get_ydata(orig=False)
-            for x, y in zip(x_data, y_data):
-                if x is None or y is None:
-                    continue
-                if x0 <= x <= x1 and y0 <= y <= y1:
-                    wells_in_rect.add(well)
-                    break
+        wells_in_rect = self._find_wells_in_rect(x0, x1, y0, y1)
 
         ctrl_pressed = bool(
             (eclick.key and "control" in str(eclick.key).lower())
@@ -331,6 +357,9 @@ class PCRGraphRenderer(FigureCanvas):
             self._store.set_selection(updated)
         else:
             self._store.set_selection(wells_in_rect)
+        self._set_rect_preview(set())
+        self._apply_interaction_styles()
+
 
     def _apply_hover_from_graph(self, well: Optional[str]) -> None:
         if self._store is not None:
@@ -387,4 +416,34 @@ class PCRGraphRenderer(FigureCanvas):
         for text in legend.get_texts():
             text.set_color(s.legend_text_color)
         legend.get_frame().set_facecolor(s.legend_frame_facecolor)
-        legend.get_frame().set_edgecolor(s.legend_frame_edgecolor)
+        legend.get_frame().set_edgecolor(s.legend_frame_edgecolor) 
+        
+    def _collect_selected_wells(self) -> Set[str]:
+        if self._store is None:
+            return set()
+        return set(self._store.selected_wells)
+
+    def _set_rect_preview(self, wells: Set[str]) -> None:
+        if wells == self._rect_preview_wells:
+            return
+        self._rect_preview_wells = wells
+        self._apply_interaction_styles()
+        self.draw_idle()
+
+    def _find_wells_in_rect(self, x0: float, x1: float, y0: float, y1: float) -> Set[str]:
+        x0, x1 = sorted([x0, x1])
+        y0, y1 = sorted([y0, y1])
+
+        wells_in_rect: Set[str] = set()
+        for line, well in self._line_to_well.items():
+            if not line.get_visible():
+                continue
+            x_data = line.get_xdata(orig=False)
+            y_data = line.get_ydata(orig=False)
+            for x, y in zip(x_data, y_data):
+                if x is None or y is None:
+                    continue
+                if x0 <= x <= x1 and y0 <= y <= y1:
+                    wells_in_rect.add(well)
+                    break
+        return wells_in_rect
