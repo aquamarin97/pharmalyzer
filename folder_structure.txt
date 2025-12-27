@@ -86,6 +86,14 @@ pharmalyzer/
 │   │   └── well_mapping.py
 │   └── views
 │       ├── plotting
+│       │   ├── pcr_graph
+│       │   │   ├── axes.py
+│       │   │   ├── drawing.py
+│       │   │   ├── hit_test.py
+│       │   │   ├── interactions.py
+│       │   │   ├── renderer.py
+│       │   │   ├── selection.py
+│       │   │   └── styles.py
 │       │   ├── regression
 │       │   │   ├── adapters.py
 │       │   │   ├── annotations.py
@@ -103,7 +111,6 @@ pharmalyzer/
 │       │   └── ui.py
 │       ├── widgets
 │       │   ├── pcr_graph_interactor.py
-│       │   ├── pcr_graph_renderer.py
 │       │   ├── pcr_graph_view.py
 │       │   ├── pcr_plate_widget.py
 │       │   └── regression_graph_view.py

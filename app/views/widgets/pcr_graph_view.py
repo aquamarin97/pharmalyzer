@@ -5,7 +5,7 @@ from app.constants.pcr_graph_style import PCRGraphStyle
 from app.services.interaction_store import InteractionStore
 from app.services.pcr_data_service import PCRDataService
 from app.views.widgets.pcr_graph_interactor import PCRGraphInteractor
-from app.views.widgets.pcr_graph_renderer import PCRGraphRenderer
+from app.views.plotting.pcr_graph.renderer import PCRGraphRenderer
 
 
 class PCRGraphView(PCRGraphRenderer):

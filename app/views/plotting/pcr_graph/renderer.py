@@ -1,4 +1,4 @@
-# app\views\widgets\pcr_graph_renderer.py
+# app\views\plotting\pcr_graph\renderer.py
 from __future__ import annotations
 
 from typing import Dict, List, Optional, Set
@@ -171,34 +171,55 @@ class PCRGraphRenderer(FigureCanvas):
             self._style_line(line, hovered, selected, preview, well, channel="hex")
 
     def _style_line(
-        self,
-        line: Line2D,
-        hovered: Optional[str],
-        selected: Set[str],
-        preview: Set[str],
-        well: str,
-        channel: str,
-    ) -> None:
-        base_alpha = self._style.fam_pen.get("alpha", 1.0) if channel == "fam" else self._style.hex_pen.get("alpha", 1.0)
-        base_width = float(self._style.fam_pen.get("linewidth", 2.0)) if channel == "fam" else float(self._style.hex_pen.get("linewidth", 2.0))
+            self,
+            line: Line2D,
+            hovered: Optional[str],
+            selected: Set[str],
+            preview: Set[str],
+            well: str,
+            channel: str,
+        ) -> None:
+            """
+            Eğrileri etkileşime göre günceller.
+            Hover ve Preview: Siyah ve En Kalın
+            Selected: Kendi renginde ve Kalın
+            Default: Kendi renginde ve Normal
+            """
+            # 1. Temel değerleri hazırla
+            is_fam = (channel == "fam")
+            style_pen = self._style.fam_pen if is_fam else self._style.hex_pen
+            
+            base_alpha = style_pen.get("alpha", 1.0)
+            base_width = float(style_pen.get("linewidth", 0.05))
+            original_color = self._style.fam_color if is_fam else self._style.hex_color
 
-        if well == hovered:
-            line.set_alpha(1.0)
-            line.set_linewidth(base_width + 1.2)
-            return
+            # 2. Durumları kontrol et
+            is_hovered = (well == hovered)
+            is_preview = (well in preview)
+            is_selected = (well in selected)
 
-        if well in preview:
-            line.set_alpha(1.0)
-            line.set_linewidth(base_width + 1.2)
-            return
-
-        if well in selected:
-            line.set_alpha(1.0)
-            line.set_linewidth(base_width + 0.8)
-            return
-
-        line.set_alpha(base_alpha)
-        line.set_linewidth(base_width)
+            # 3. Stil Önceliği Uygula
+            if is_hovered or is_preview:
+                # Üzerine gelindiğinde veya kare içine alındığında SİYAH yap
+                line.set_color("#D3D3D3")
+                line.set_alpha(1.0)
+                line.set_linewidth(base_width + 0.1)
+                # Üstte görünmesi için z-order artırılabilir (isteğe bağlı)
+                line.set_zorder(100) 
+                
+            elif is_selected:
+                # Seçili olanlar (Zaten grafikte olanlar) kendi renginde kalsın ama BOLD olsun
+                line.set_color(original_color)
+                line.set_alpha(1.0)
+                line.set_linewidth(base_width + 0.1)
+                line.set_zorder(10)
+                
+            else:
+                # Hiçbiri değilse (InteractionStore'da olmayan bir kuyu varsa) sönük göster
+                line.set_color(original_color)
+                line.set_alpha(base_alpha)
+                line.set_linewidth(base_width)
+                line.set_zorder(1)
 
     def bind_interaction_store(self, store: InteractionStore | None) -> None:
         """Grafik etkileşimlerini InteractionStore ile köprüle."""
