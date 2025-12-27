@@ -270,8 +270,7 @@ class PCRGraphRenderer(FigureCanvas):
         well = self._find_well_at_event(event)
         if well:
             self._add_to_selection(well)
-        elif self._store is not None:
-            self._store.clear_selection()
+
 
     def _on_button_release(self, event) -> None:
         if event.button != 1:
@@ -287,13 +286,14 @@ class PCRGraphRenderer(FigureCanvas):
         if event.button != 1:
             return
         self._rect_selecting = True
+        self._selecting = False
         self._selection_buffer.clear()
 
     def _on_rect_release(self, event) -> None:
         if event.button != 1:
             return
         self._rect_selecting = False
-
+        self._selecting = False
     def _on_rectangle_select(self, eclick, erelease) -> None:
         if self._store is None:
             return
@@ -322,8 +322,7 @@ class PCRGraphRenderer(FigureCanvas):
             or (erelease.key and "control" in str(erelease.key).lower())
         )
 
-        if not wells_in_rect and not ctrl_pressed:
-            self._store.clear_selection()
+        if not wells_in_rect:
             return
 
         if ctrl_pressed:
