@@ -16,12 +16,15 @@ class InteractionStore(QObject):
 
     selectedChanged = pyqtSignal(set)
     hoverChanged = pyqtSignal(object)
-
+    previewChanged = pyqtSignal(set)
+    
     def __init__(self):
         super().__init__()
         self.selected_wells: Set[str] = set()
         self.hover_well: Optional[str] = None
-
+        self.preview_wells: Set[str] = set()
+        
+        
     # ---- selection ----
     def set_selection(self, wells: Iterable[str]) -> None:
         normalized = self._normalize_wells(wells)
@@ -61,6 +64,13 @@ class InteractionStore(QObject):
             return
         self.hover_well = normalized
         self.hoverChanged.emit(self.hover_well)
+
+    def set_preview(self, wells: Iterable[str]) -> None:
+        normalized = self._normalize_wells(wells)
+        if normalized == self.preview_wells:
+            return
+        self.preview_wells = normalized
+        self.previewChanged.emit(set(self.preview_wells))
 
     # ---- helpers ----
     @staticmethod

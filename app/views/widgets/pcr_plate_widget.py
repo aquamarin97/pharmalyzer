@@ -20,7 +20,9 @@ class _PlateTable(QTableWidget):
         self._on_mouse_press = on_mouse_press
         self._selected_header_rows = set()
         self._selected_header_cols = set()
-
+        self._preview_cells: Set[tuple[int, int]] = set() 
+        
+        
     def paintEvent(self, event):
         super().paintEvent(event)
 
@@ -112,16 +114,30 @@ class _PlateTable(QTableWidget):
         painter.restore()
 
     def _draw_hover_highlight(self, painter: QPainter) -> None:
+        painter.save()
+
+        if self._preview_cells:
+            pen = QPen(Qt.red, 2)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+
+            for row_idx, col_idx in self._preview_cells:
+                model_index = self.model().index(row_idx, col_idx)
+                rect = self.visualRect(model_index)
+                if rect.isValid():
+                    painter.drawRect(rect.adjusted(1, 1, -1, -1))
+                    
         row, col = self._hover_index_getter()
         if row is None or col is None:
+            painter.restore()
             return
 
         model_index = self.model().index(row, col)
         rect = self.visualRect(model_index)
         if not rect.isValid():
+            painter.restore()
             return
 
-        painter.save()
 
         is_header = (row == 0 or col == 0)
         if is_header:
@@ -167,7 +183,12 @@ class _PlateTable(QTableWidget):
     def mousePressEvent(self, event):
         self._on_mouse_press(event)
         super().mousePressEvent(event)
-
+        
+    def set_preview_cells(self, cells: Set[tuple[int, int]]) -> None:
+        if cells == self._preview_cells:
+            return
+        self._preview_cells = cells
+        self.viewport().update()
 
 class PCRPlateWidget(QWidget):
     """
@@ -195,7 +216,9 @@ class PCRPlateWidget(QWidget):
         self._store: InteractionStore | None = None
         self._hover_row: int | None = None
         self._hover_col: int | None = None
-
+        self._preview_cells: Set[tuple[int, int]] = set()
+        
+        
         self.table = _PlateTable(
             self,
             hover_index_getter=self._get_hover_index,
@@ -223,16 +246,18 @@ class PCRPlateWidget(QWidget):
             try:
                 self._store.selectedChanged.disconnect(self._on_selection_changed)
                 self._store.hoverChanged.disconnect(self._on_hover_changed)
+                self._store.previewChanged.disconnect(self._on_preview_changed)
             except Exception:
                 pass
 
         self._store = store
         self._store.selectedChanged.connect(self._on_selection_changed)
-        self._store.hoverChanged.connect(self._on_hover_changed)
+        self._store.hoverChanged.connect(self._on_hover_changed) 
+        self._store.previewChanged.connect(self._on_preview_changed)
         # mevcut state'i uygula
         self._on_selection_changed(self._store.selected_wells)
         self._on_hover_changed(self._store.hover_well)
-
+        self._on_preview_changed(self._store.preview_wells)
     # ---- setup ----
     def _setup_grid(self) -> None:
         self.table.setRowCount(len(well_mapping.ROWS) + self.HEADER_ROWS)
@@ -353,6 +378,16 @@ class PCRPlateWidget(QWidget):
                 self._hover_col = None
         self.table.viewport().update()
         self.update()
+
+    def _on_preview_changed(self, wells: Set[str]) -> None:
+        preview_cells: Set[tuple[int, int]] = set()
+        for well in wells or set():
+            try:
+                preview_cells.add(well_mapping.well_id_to_table_index(well))
+            except ValueError:
+                continue
+        self._preview_cells = preview_cells
+        self.table.set_preview_cells(self._preview_cells)
 
     # ---- styling helpers ----
     def _apply_base_colors(self) -> None:

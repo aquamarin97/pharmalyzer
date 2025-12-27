@@ -163,7 +163,7 @@ class PCRGraphRenderer(FigureCanvas):
 
         hovered = self._hover_well
         selected = self._collect_selected_wells()
-        preview = self._rect_preview_wells
+        preview = self._collect_preview_wells()
         
         for well, line in self._fam_lines.items():
             self._style_line(line, hovered, selected, preview, well, channel="fam")
@@ -202,7 +202,14 @@ class PCRGraphRenderer(FigureCanvas):
 
     def bind_interaction_store(self, store: InteractionStore | None) -> None:
         """Grafik etkileşimlerini InteractionStore ile köprüle."""
+        if self._store is not None:
+            try:
+                self._store.previewChanged.disconnect(self._on_store_preview_changed)
+            except Exception:
+                pass
         self._store = store
+        if self._store is not None:
+            self._store.previewChanged.connect(self._on_store_preview_changed)
 
     # ---- visibility ----
     def set_channel_visibility(self, fam_visible: bool | None = None, hex_visible: bool | None = None) -> None:
@@ -423,10 +430,22 @@ class PCRGraphRenderer(FigureCanvas):
             return set()
         return set(self._store.selected_wells)
 
+    def _on_store_preview_changed(self, wells: Set[str]) -> None:
+        self._rect_preview_wells = set(wells or set())
+        self._apply_interaction_styles()
+        self.draw_idle()
+
+    def _collect_preview_wells(self) -> Set[str]:
+        if self._store is not None:
+            return set(self._store.preview_wells)
+        return set(self._rect_preview_wells)
+
     def _set_rect_preview(self, wells: Set[str]) -> None:
         if wells == self._rect_preview_wells:
             return
         self._rect_preview_wells = wells
+        if self._store is not None:
+            self._store.set_preview(wells)
         self._apply_interaction_styles()
         self.draw_idle()
 
