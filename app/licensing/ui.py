@@ -1,3 +1,4 @@
+# app\licensing\ui.py
 # app/licensing/ui.py
 from __future__ import annotations
 

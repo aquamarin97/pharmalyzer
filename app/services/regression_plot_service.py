@@ -1,3 +1,4 @@
+# app\services\regression_plot_service.py
 # app/services/regression_plot_service.py
 from __future__ import annotations
 
@@ -59,6 +60,16 @@ class RegressionPlotService:
         # numeric kolonları güvenli şekilde sayısala çevir
         work["fam_end_rfu"] = pd.to_numeric(work["fam_end_rfu"], errors="coerce")
         work["hex_end_rfu"] = pd.to_numeric(work["hex_end_rfu"], errors="coerce")
+
+        # Min-Max Scaling Uygulaması
+        f_min, f_max = work["fam_end_rfu"].min(), work["fam_end_rfu"].max()
+        h_min, h_max = work["hex_end_rfu"].min(), work["hex_end_rfu"].max()
+
+        # Paydanın sıfır olmaması için kontrol (Range > 0)
+        if f_max > f_min:
+            work["fam_end_rfu"] = (work["fam_end_rfu"] - f_min) / (f_max - f_min)
+        if h_max > h_min:
+            work["hex_end_rfu"] = (work["hex_end_rfu"] - h_min) / (h_max - h_min)
 
         # zorunlu alanlar
         work.dropna(subset=["hex_end_rfu", "fam_end_rfu", "Kuyu No", "Nihai Sonuç"], inplace=True)

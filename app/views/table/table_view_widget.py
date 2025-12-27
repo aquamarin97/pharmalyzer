@@ -1,20 +1,11 @@
-# app\views\table\table_view_widget.py
-# app\views\widgets\table_view_widget.py
-# app/views/widgets/table_view_widget.py
 from PyQt5.QtCore import QEvent, Qt, QTimer
-from PyQt5.QtWidgets import QTableView
+from PyQt5.QtWidgets import QHeaderView, QTableView
 
 
 class TableViewWidget(QTableView):
-    """
-    QTableView'i genişleten ve özelleştiren widget.
-    Model/headers controller tarafından set edilir.
-    """
-
     def __init__(self, original_table: QTableView):
         super().__init__(original_table.parent())
 
-        # Qt Designer'daki widget'ı "replaceWidget" ile değiştiriyorsun:
         self.setObjectName(original_table.objectName())
         self.setSizePolicy(original_table.sizePolicy())
         self.setMinimumSize(original_table.minimumSize())
@@ -27,18 +18,23 @@ class TableViewWidget(QTableView):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 
         self._apply_styles_to_table()
+
+        header = self.horizontalHeader()
+        header.setFixedHeight(50)
+        header.setDefaultAlignment(Qt.AlignCenter)  # <-- text-align yerine
+
+        # İstersen: header resize mode sabit kalsın (manuel width veriyoruz)
+        header.setSectionResizeMode(QHeaderView.Fixed)
+
         self._resize_pending = False
         self.column_expansion_ratios = []
         self.viewport().installEventFilter(self)
 
-    def set_column_expansion_ratios(self, ratios: list[int]):
-        if self.model() is None:
-            # model daha sonra set edilecekse oranları şimdilik sakla
-            self.column_expansion_ratios = ratios
-            return
+    def setModel(self, model):
+        super().setModel(model)
+        QTimer.singleShot(0, self.adjust_column_widths)  # model set edilince uygula
 
-        if len(ratios) != self.model().columnCount():
-            raise ValueError("Genişleme katsayıları sütun sayısıyla eşleşmiyor.")
+    def set_column_expansion_ratios(self, ratios: list[int]):
         self.column_expansion_ratios = ratios
         QTimer.singleShot(0, self.adjust_column_widths)
 
@@ -57,43 +53,51 @@ class TableViewWidget(QTableView):
             "gridline-color: purple;"
             "color: #333333;"
             "}"
+            "QTableView::item:selected {"
+            "background-color: #2b78da;"
+            "color: white;"
+            "}"
+            "QTableView::item:selected:!active {"
+            "background-color: #2b78da;"
+            "color: white;"
+            "}"
         )
-
-        header = self.horizontalHeader()
-        header.setFixedHeight(50)
-        header.setStyleSheet(
+        self.horizontalHeader().setStyleSheet(
             "QHeaderView::section {"
             "background-color: #4ca1af;"
             "font-family: 'Arial';"
             "color: white;"
-            "font-size: 17px;"
+            "font-size: 15px;"
             "font-weight: bold;"
             "border: 1px solid #d6d6d6;"
             "padding: 3px 0;"
-            "text-align: center;"
             "}"
         )
 
     def adjust_column_widths(self):
-        if self.model() is None:
+        model = self.model()
+        if model is None:
             return
 
-        col_count = self.model().columnCount()
-        if col_count == 0:
+        col_count = model.columnCount()
+        if col_count <= 0:
             return
 
-        if not self.column_expansion_ratios:
-            self.column_expansion_ratios = [1] * col_count
-
-        if len(self.column_expansion_ratios) != col_count:
-            # model değiştiyse ratio da güncellenmemiş olabilir
-            self.column_expansion_ratios = [1] * col_count
+        ratios = self.column_expansion_ratios or [1] * col_count
+        if len(ratios) != col_count:
+            ratios = [1] * col_count
+            self.column_expansion_ratios = ratios
 
         total_width = self.viewport().width()
-        ratio_sum = sum(self.column_expansion_ratios) or 1
+        ratio_sum = sum(ratios) or 1
 
+        used = 0
         for i in range(col_count):
-            w = int(total_width * (self.column_expansion_ratios[i] / ratio_sum))
+            if i == col_count - 1:
+                w = max(0, total_width - used)  # kalan
+            else:
+                w = int(total_width * (ratios[i] / ratio_sum))
+                used += w
             self.setColumnWidth(i, w)
 
     def _apply_resize(self):

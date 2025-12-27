@@ -1,3 +1,4 @@
+# app\views\widgets\pcr_graph_renderer.py
 from __future__ import annotations
 
 from typing import Dict, List, Optional
@@ -162,7 +163,7 @@ class PCRGraphRenderer(FigureCanvas):
             line.set_alpha(1.0)
             line.set_linewidth(base_width + 1.2)
         else:
-            line.set_alpha(base_alpha * 0.25)
+            line.set_alpha(base_alpha * 1)
             line.set_linewidth(base_width)
 
     # ---- visibility ----

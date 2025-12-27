@@ -1,3 +1,4 @@
+# app\controllers\main_controller.py
 # app/controllers/main_controller.py
 from __future__ import annotations
 import time
@@ -181,11 +182,6 @@ class MainController:
         self.view.ui.verticalLayout_2.replaceWidget(original_plate, self.view.ui.PCR_plate_container)
         original_plate.deleteLater()
         self.plate_widget = self.view.ui.PCR_plate_container
-
-        print("original parent:", original_plate.parent(), original_plate.objectName())
-        for ch in original_plate.parent().findChildren(QWidget):
-            if "PCR" in ch.objectName() or "plate" in ch.objectName().lower():
-                print("child:", ch, ch.objectName(), "visible:", ch.isVisible())
 
     def _on_close_requested(self) -> None:
         # Release-grade: thread’i güvenli kapat

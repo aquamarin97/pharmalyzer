@@ -1,3 +1,4 @@
+# app\services\pipeline.py
 # app/services/pipeline.py
 from __future__ import annotations
 

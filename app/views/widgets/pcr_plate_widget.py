@@ -1,6 +1,7 @@
+# app\views\widgets\pcr_plate_widget.py
 from __future__ import annotations
 
-from typing import Optional, Set
+from typing import Set
 
 from PyQt5.QtCore import QPoint, Qt, QTimer
 from PyQt5.QtGui import QColor, QPainter, QPen, QPolygon
@@ -30,44 +31,59 @@ class _PlateTable(QTableWidget):
         self._draw_header_selection(painter)
         self._draw_hover_highlight(painter)
         painter.end()
-
     def _draw_header_selection(self, painter: QPainter) -> None:
-        if not getattr(self, "_selected_header_rows", None) and not getattr(self, "_selected_header_cols", None):
+        if not self._selected_header_rows and not self._selected_header_cols:
             return
 
         painter.save()
 
-        accent = QColor("#3A7AFE")  # seçimin ana rengi
-        tint = QColor(58, 122, 254, 55)   # yarı saydam mavi overlay
-        underline = QColor(58, 122, 254, 180)
+        accent = QColor("#3A7AFE")               # ana vurgu
+        tint = QColor(58, 122, 254, 50)           # soft arkaplan
+        inner_glow = QColor(255, 255, 255, 90)    # cam hissi
 
-        # Row header (col=0, row>0)
-        for r in getattr(self, "_selected_header_rows", set()):
+        # Row header (col=0)
+        for r in self._selected_header_rows:
             idx = self.model().index(r, 0)
             rect = self.visualRect(idx)
-            if rect.isValid():
-                rr = rect.adjusted(1, 1, -1, -1)
-                painter.setPen(Qt.NoPen)
-                painter.setBrush(tint)
-                painter.drawRect(rr)
+            if not rect.isValid():
+                continue
 
-                painter.setPen(QPen(underline, 2))
-                painter.drawLine(rr.bottomLeft(), rr.bottomRight())
+            rr = rect.adjusted(1, 1, -1, -1)
 
-        # Col header (row=0, col>0)
-        for c in getattr(self, "_selected_header_cols", set()):
+            # background tint
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(tint)
+            painter.drawRect(rr)
+
+            # accent underline
+            painter.setPen(QPen(accent, 2))
+            painter.drawLine(rr.bottomLeft(), rr.bottomRight())
+
+            # inner highlight
+            painter.setPen(QPen(inner_glow, 1))
+            painter.drawRect(rr.adjusted(1, 1, -1, -1))
+
+        # Column header (row=0)
+        for c in self._selected_header_cols:
             idx = self.model().index(0, c)
             rect = self.visualRect(idx)
-            if rect.isValid():
-                rr = rect.adjusted(1, 1, -1, -1)
-                painter.setPen(Qt.NoPen)
-                painter.setBrush(tint)
-                painter.drawRect(rr)
+            if not rect.isValid():
+                continue
 
-                painter.setPen(QPen(underline, 2))
-                painter.drawLine(rr.bottomLeft(), rr.bottomRight())
+            rr = rect.adjusted(1, 1, -1, -1)
+
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(tint)
+            painter.drawRect(rr)
+
+            painter.setPen(QPen(accent, 2))
+            painter.drawLine(rr.bottomLeft(), rr.bottomRight())
+
+            painter.setPen(QPen(inner_glow, 1))
+            painter.drawRect(rr.adjusted(1, 1, -1, -1))
 
         painter.restore()
+
 
 
     def _draw_corner_indicator(self, painter: QPainter) -> None:
@@ -111,23 +127,26 @@ class _PlateTable(QTableWidget):
         if is_header:
             r = rect.adjusted(1, 1, -1, -1)
 
-            # Gradient overlay (üst daha parlak)
+            accent = QColor("#3A7AFE")
+
+            # ✅ Koyu (press) hissi: üst biraz daha az koyu, alt biraz daha koyu
             grad = QLinearGradient(r.topLeft(), r.bottomLeft())
-            grad.setColorAt(0.0, QColor(255, 255, 255, 110))
-            grad.setColorAt(1.0, QColor(255, 255, 255, 40))
+            grad.setColorAt(0.0, QColor(0, 0, 0, 18))
+            grad.setColorAt(1.0, QColor(0, 0, 0, 38))
 
             painter.setPen(Qt.NoPen)
             painter.setBrush(grad)
             painter.drawRect(r)
 
-            # Outer stroke (çok hafif)
+            # ✅ İnce accent border (premium vurgu)
             painter.setBrush(Qt.NoBrush)
-            painter.setPen(QPen(QColor(0, 0, 0, 55), 1))
+            painter.setPen(QPen(accent, 1))
             painter.drawRect(r)
 
-            # Inner stroke (premium cam hissi)
-            painter.setPen(QPen(QColor(255, 255, 255, 90), 1))
+            # ✅ Çok ince inner highlight (cam hissini tamamen kaybetmeyelim)
+            painter.setPen(QPen(QColor(255, 255, 255, 40), 1))
             painter.drawRect(r.adjusted(1, 1, -1, -1))
+
         else:
             # ✅ Body hücreleri: mevcut kırmızı çerçeve devam
             pen = QPen(Qt.red, 2)

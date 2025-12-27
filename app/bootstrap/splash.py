@@ -1,3 +1,4 @@
+# app\bootstrap\splash.py
 # app/bootstrap/splash.py
 from __future__ import annotations
 

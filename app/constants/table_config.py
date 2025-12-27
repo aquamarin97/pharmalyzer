@@ -30,8 +30,7 @@ CSV_FILE_HEADERS = [
 ]
 
 TABLE_WIDGET_HEADERS = [
-    "Hasta No", "Kuyu No", "Barkot No", "Hasta Adı", "Uyarı",
-    "FAM Ct", "HEX Ct", "Δ Ct", "Regresyon",
+    "Hasta No", "Kuyu No", "Barkot No", "Hasta Adı",  "Δ Ct", "Regresyon",
     "İstatistik Oranı", "Standart Oranı", "Nihai Sonuç",
 ]
 

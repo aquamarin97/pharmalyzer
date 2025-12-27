@@ -1,3 +1,4 @@
+# app\views\plotting\regression\styles.py
 from __future__ import annotations
 
 import pyqtgraph as pg

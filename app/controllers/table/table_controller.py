@@ -1,3 +1,4 @@
+# app\controllers\table\table_controller.py
 # app/controllers/table/table_controller.py
 import pandas as pd
 
@@ -44,7 +45,7 @@ class AppTableController:
         self.table_interaction = None
 
         # ✅ Tek kaynak: kolon oranları burada saklanır
-        self._column_ratios = [2, 2, 2, 10, 5, 2, 2, 2, 3, 3, 3, 3]
+        self._column_ratios = [2, 2, 2, 10, 2, 3, 3, 3, 3]
 
         self.setup_table_in_main_window()
 

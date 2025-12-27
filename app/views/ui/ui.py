@@ -1,3 +1,4 @@
+# app\views\ui\ui.py
 # -*- coding: utf-8 -*-
 
 # Form implementation generated from reading ui file 'final_design_v3_2.ui'
@@ -786,8 +787,8 @@ class Ui_MainWindow(object):
         self.horizontalLayout_2.addWidget(self.checkBox_HEX)
         self.verticalLayout_2.addLayout(self.horizontalLayout_2)
         self.PCR_plate_container = QtWidgets.QWidget(self.centralwidget)
-        self.PCR_plate_container.setMinimumSize(QtCore.QSize(0, 288))
-        self.PCR_plate_container.setMaximumSize(QtCore.QSize(16777215, 288))
+        self.PCR_plate_container.setMinimumSize(QtCore.QSize(0, 290))
+        self.PCR_plate_container.setMaximumSize(QtCore.QSize(16777215, 290))
         self.PCR_plate_container.setObjectName("PCR_plate_container")
         self.verticalLayout_2.addWidget(self.PCR_plate_container)
         spacerItem2 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)

@@ -1,3 +1,4 @@
+# app\views\main_view.py
 # app/views/main_view.py
 from __future__ import annotations
 

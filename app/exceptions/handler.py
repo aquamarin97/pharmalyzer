@@ -1,3 +1,4 @@
+# app\exceptions\handler.py
 # app/exceptions/handler.py
 from __future__ import annotations
 

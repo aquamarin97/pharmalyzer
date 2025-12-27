@@ -1,3 +1,4 @@
+# app\controllers\table\table_interaction_controller.py
 # app/controllers/table/table_interaction_controller.py
 from __future__ import annotations
 
@@ -22,7 +23,9 @@ class TableInteractionController(QObject):
         self.graph_drawer = graph_drawer
         self.interaction_store: InteractionStore | None = interaction_store
 
-
+        self.table_widget.setEditTriggers(
+            QAbstractItemView.SelectedClicked | QAbstractItemView.CurrentChanged
+        )
         self._syncing_from_store = False
         self._selection_model = None
 
