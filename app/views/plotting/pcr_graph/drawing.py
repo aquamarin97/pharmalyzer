@@ -1,12 +1,17 @@
 # app\views\plotting\pcr_graph\drawing.py
 # app/views/plotting/pcr/drawing.py
 from typing import Dict, List
+
 from matplotlib.lines import Line2D
+
+from app.services.graph.pcr_graph_layout_service import PCRGraphLayoutService
 from app.services.pcr_data_service import PCRCoords
 from app.utils import well_mapping
-from .axes import setup_axes, apply_ylim
 
-def render_wells_impl(r, data: Dict[str, PCRCoords]) -> None:
+from .axes import setup_axes
+
+
+def render_wells(r, data: Dict[str, PCRCoords]) -> None:
     r._fam_lines.clear()
     r._hex_lines.clear()
     r._line_to_well.clear()
@@ -43,13 +48,15 @@ def render_wells_impl(r, data: Dict[str, PCRCoords]) -> None:
             hex_x, hex_y = [], []
 
         fam_line, = r.ax.plot(
-            fam_x, fam_y,
+            fam_x,
+            fam_y,
             label="FAM",
             color=r._style.fam_color,
             **r._style.fam_pen,
         )
         hex_line, = r.ax.plot(
-            hex_x, hex_y,
+            hex_x,
+            hex_y,
             label="HEX",
             color=r._style.hex_color,
             **r._style.hex_pen,
@@ -66,6 +73,24 @@ def render_wells_impl(r, data: Dict[str, PCRCoords]) -> None:
         r._line_to_well[hex_line] = well
 
     apply_ylim(r, fam_all, hex_all)
+    refresh_legend(r)
+
+
+def apply_ylim(r, fam_coords, hex_coords) -> None:
+    ylim = PCRGraphLayoutService.compute_ylim_for_static_draw(
+        fam_coords=fam_coords,
+        hex_coords=hex_coords,
+        min_floor=4500.0,
+        y_padding=500.0,
+    )
+    if ylim:
+        r.ax.set_ylim(*ylim)
+    else:
+        r.ax.set_ylim(*r._style.axes.default_ylim)
+
+    r.ax.relim()
+    r.ax.autoscale_view(scalex=True, scaley=False)
+
 
 def refresh_legend(r) -> None:
     legend = r.ax.get_legend()
@@ -81,10 +106,10 @@ def refresh_legend(r) -> None:
     labels: List[str] = []
 
     if fam_visible:
-        handles.append(Line2D([0],[0], color=r._style.fam_color, label="FAM", **r._style.fam_pen))
+        handles.append(Line2D([0], [0], color=r._style.fam_color, label="FAM", **r._style.fam_pen))
         labels.append("FAM")
     if hex_visible:
-        handles.append(Line2D([0],[0], color=r._style.hex_color, label="HEX", **r._style.hex_pen))
+        handles.append(Line2D([0], [0], color=r._style.hex_color, label="HEX", **r._style.hex_pen))
         labels.append("HEX")
 
     if not handles:

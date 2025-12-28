@@ -1,12 +1,8 @@
 # app\models\workers\analysis_worker.py
 from __future__ import annotations
-import time
-
-import logging
 import traceback
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 
-logger = logging.getLogger(__name__)
 
 
 class AnalysisWorker(QObject):
@@ -34,7 +30,7 @@ class AnalysisWorker(QObject):
             try:
                 cancel_fn()
             except Exception:
-                logger.exception("AnalysisService.cancel() failed")
+                print("AnalysisService.cancel() failed")
 
     def _is_cancelled(self) -> bool:
         return self._cancel_requested
@@ -52,9 +48,6 @@ class AnalysisWorker(QObject):
         self._running = True
         self._cancel_requested = False
 
-        t0 = time.perf_counter()
-        logger.info("[PERF] Worker.run started")
-
         try:
             self._progress(1, "Analiz başlatılıyor...")
 
@@ -68,11 +61,10 @@ class AnalysisWorker(QObject):
 
         except Exception as e:
             tb = traceback.format_exc()
-            logger.error("Analysis failed: %s\n%s", e, tb)
+            print("Analysis failed: %s\n%s", e, tb)
             self.error.emit(str(e))
             self.finished.emit(False)
 
         finally:
-            t1 = time.perf_counter()
-            logger.info("[PERF] Worker.run total %.0f ms", (t1 - t0) * 1000)
+
             self._running = False

@@ -23,7 +23,8 @@ class CalculateRegration:
         # Pipeline kontratı: df üzerinde in-place oynamak istemiyorsak burada kopyalarız
         self.df = df.copy(deep=False)
         self.calculate_regration()
-        logger.info("Regresyon adımı tamamlandı.")
+        print("Regresyon adımı tamamlandı."),
+        print("--------------------------")
         return self.df
 
     def calculate_regration(self) -> None:
