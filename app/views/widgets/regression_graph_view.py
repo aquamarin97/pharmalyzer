@@ -63,15 +63,17 @@ class RegressionGraphView(QWidget):
         view_box = self._view_box
         view_box.setBackgroundColor(self._style.background_hex)
 
-        view_box.setMouseEnabled(x=False, y=False)
+        view_box.setMouseEnabled(x=True, y=True)
 
         view_box.setLimits(
-            xMin=0,
-            xMax=1.1,
-            yMin=0,
+            xMin=0, 
+            xMax=1.1, 
+            yMin=0, 
             yMax=1.1,
-            maxXRange=1.1,
-            maxYRange=1.1,
+            minXRange=0.01, # Çok fazla yakınlaşıp kaybolmayı önlemek için minimum genişlik
+            minYRange=0.01,
+            maxXRange=1.1,  # Zoom out limitiniz: Ekranın en fazla 1.1 birim göstermesini sağlar
+            maxYRange=1.1
         )
         self.plot_item.setRange(xRange=(0, 1.1), yRange=(0, 1.1), padding=0.0)
         self.plot_item.setDefaultPadding(0.0)
@@ -125,9 +127,17 @@ class RegressionGraphView(QWidget):
         self._set_range_clamped(x_range, y_range)
 
     def _set_range_clamped(self, x_range, y_range) -> None:
-        x0, x1 = self._clamp_range(x_range)
-        y0, y1 = self._clamp_range(y_range)
-        # Range update'ı yeniden sinyal yaymasın diye sinyalleri geçici kapat
+        # Sınırları belirle
+        MIN_B, MAX_B = 0.0, 1.1
+        
+        # Mevcut aralıkları al ve sınırla
+        x0 = max(MIN_B, x_range[0])
+        x1 = min(MAX_B, x_range[1])
+        
+        y0 = max(MIN_B, y_range[0])
+        y1 = min(MAX_B, y_range[1])
+
+        # Eğer zoom out yaparak sınırları aşmaya çalışırsa geri çek
         self._view_box.blockSignals(True)
         self.plot_item.setRange(xRange=(x0, x1), yRange=(y0, y1), padding=0.0, disableAutoRange=True)
         self._view_box.blockSignals(False)
