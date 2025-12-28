@@ -102,8 +102,8 @@ class CSVProcessor:
 
         df.loc[
             (
-                (df["FAM Ct"] > 40)
-                | (df["HEX Ct"] > 40)
+                (df["FAM Ct"] > 30)
+                | (df["HEX Ct"] > 30)
                 | (df["FAM Ct"].isna())
                 | (df["HEX Ct"].isna())
             )
