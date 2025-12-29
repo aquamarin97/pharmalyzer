@@ -76,7 +76,7 @@ class CalculateWithReferance:
                     else (
                         "Taşıyıcı"
                         if 0.1 < x <= carrier_range
-                        else "Hasta" if x <= 0.1 else "Tekrar"
+                        else "Tekrar"
                     )
                 )
             )
