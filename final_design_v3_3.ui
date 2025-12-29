@@ -1582,13 +1582,13 @@ color: White</string>
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>288</height>
+            <height>290</height>
            </size>
           </property>
           <property name="maximumSize">
            <size>
             <width>16777215</width>
-            <height>288</height>
+            <height>290</height>
            </size>
           </property>
          </widget>
@@ -1604,7 +1604,7 @@ color: White</string>
            </font>
           </property>
           <property name="styleSheet">
-           <string notr="true">background-color: transparent;
+           <string notr="true">background-color: #4ca1af;
 color: White</string>
           </property>
           <property name="text">
@@ -1622,7 +1622,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1641,7 +1641,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1660,7 +1660,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1679,7 +1679,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1698,7 +1698,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1717,7 +1717,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1736,7 +1736,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1755,7 +1755,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1774,7 +1774,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1784,7 +1784,7 @@ color: White</string>
 color: White</string>
             </property>
             <property name="text">
-             <string>CV</string>
+             <string>CV (%)</string>
             </property>
            </widget>
           </item>
@@ -1793,7 +1793,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1803,7 +1803,7 @@ color: White</string>
 color: White</string>
             </property>
             <property name="text">
-             <string/>
+             <string>:  </string>
             </property>
            </widget>
           </item>
@@ -1812,7 +1812,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1822,7 +1822,7 @@ color: White</string>
 color: White</string>
             </property>
             <property name="text">
-             <string/>
+             <string>:</string>
             </property>
            </widget>
           </item>
@@ -1831,7 +1831,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1841,7 +1841,7 @@ color: White</string>
 color: White</string>
             </property>
             <property name="text">
-             <string/>
+             <string>:</string>
             </property>
            </widget>
           </item>
@@ -1850,7 +1850,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1860,7 +1860,7 @@ color: White</string>
 color: White</string>
             </property>
             <property name="text">
-             <string/>
+             <string>:</string>
             </property>
            </widget>
           </item>
@@ -1869,7 +1869,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1879,7 +1879,7 @@ color: White</string>
 color: White</string>
             </property>
             <property name="text">
-             <string/>
+             <string>:</string>
             </property>
            </widget>
           </item>
@@ -1888,7 +1888,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1898,7 +1898,7 @@ color: White</string>
 color: White</string>
             </property>
             <property name="text">
-             <string/>
+             <string>:</string>
             </property>
            </widget>
           </item>
@@ -1907,7 +1907,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1917,7 +1917,7 @@ color: White</string>
 color: White</string>
             </property>
             <property name="text">
-             <string/>
+             <string>:</string>
             </property>
            </widget>
           </item>
@@ -1926,7 +1926,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1936,7 +1936,7 @@ color: White</string>
 color: White</string>
             </property>
             <property name="text">
-             <string/>
+             <string>:</string>
             </property>
            </widget>
           </item>
@@ -1945,7 +1945,7 @@ color: White</string>
             <property name="font">
              <font>
               <family>Arial</family>
-              <pointsize>11</pointsize>
+              <pointsize>10</pointsize>
               <weight>50</weight>
               <bold>false</bold>
              </font>
@@ -1955,7 +1955,7 @@ color: White</string>
 color: White</string>
             </property>
             <property name="text">
-             <string/>
+             <string>:</string>
             </property>
            </widget>
           </item>

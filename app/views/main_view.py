@@ -1,5 +1,4 @@
 # app\views\main_view.py
-# app/views/main_view.py
 from __future__ import annotations
 
 from PyQt5 import QtCore, QtWidgets, QtGui
@@ -143,6 +142,20 @@ class MainView(QMainWindow):
 
         layout.setContentsMargins(10, 10, 10, 10)
         return layout
+
+    def update_summary_labels(self, s) -> None:
+        if s is None:
+            return
+        ui = self.ui
+        ui.total_sample_count_label.setText(str(s.analyzed_well_count))
+        ui.safezone_count_label.setText(str(s.safezone_count))
+        ui.riskyarea_count_label.setText(str(s.riskyarea_count))
+        ui.healthy_count_label.setText(str(s.healthy_count))
+        ui.carry_count_label.setText(str(s.carrier_count))
+        ui.uncertain_count_label.setText(str(s.uncertain_count))
+        ui.healthy_avg.setText(str(s.healthy_avg))
+        ui.std.setText(str(s.std))
+        ui.cv.setText(str(s.cv))
     
     def ensure_regression_graph_container(self):
         layout = self.ui.regration_container.layout()

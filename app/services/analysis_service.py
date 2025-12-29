@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable, Optional
+import pandas as pd
 
 from app.services.pipeline import Pipeline, Step, CancelledError
 
@@ -28,6 +29,8 @@ class AnalysisService:
     def __init__(self, config: Optional[AnalysisConfig] = None):
         self.config = config or AnalysisConfig()
         self._cancelled = False
+        self.last_df: Optional[pd.DataFrame] = None
+        self.last_summary = None
 
     def cancel(self) -> None:
         self._cancelled = True
@@ -60,6 +63,7 @@ class AnalysisService:
     ) -> bool:
         # Her run başlangıcında cancel flag sıfırla
         self._cancelled = False
+        self.last_df = None
         is_cancelled = is_cancelled or self._is_cancelled
 
         def progress(p: int, msg: str) -> None:
@@ -88,12 +92,13 @@ class AnalysisService:
         ]
 
         try:
-            Pipeline.run(
+            out_df = Pipeline.run(
                 steps,
                 progress_cb=progress,
                 is_cancelled=is_cancelled,
                 copy_input_each_step=False,
             )
+            self.last_df = out_df
         except CancelledError:
             # Cancel bir hata değil → False dön
             return False

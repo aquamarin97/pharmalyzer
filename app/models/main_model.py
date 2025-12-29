@@ -30,6 +30,7 @@ class MainModel(QObject):
     analysis_busy = pyqtSignal(bool)
     analysis_progress = pyqtSignal(int, str)
     analysis_finished = pyqtSignal(bool)
+    analysis_summary_ready = pyqtSignal(object)
     analysis_error = pyqtSignal(str)
 
     def __init__(self):
@@ -108,12 +109,13 @@ class MainModel(QObject):
 
         thread.start()
 
-    def _on_worker_finished(self, success: bool) -> None:
+    def _on_worker_finished(self, success: bool, summary) -> None:
         # UI'ye durum bildir (önce)
         self._busy = False
         self.analysis_busy.emit(False)
         self.analysis_finished.emit(bool(success))
-
+        if summary is not None:
+            self.analysis_summary_ready.emit(summary)
         # Thread'i kapat (non-blocking)
         self._cleanup_analysis_thread(non_blocking=True)
 

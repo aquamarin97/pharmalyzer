@@ -1,7 +1,8 @@
-  File "C:\Users\gül\Desktop\SMA_updates\pharmalyzer\app\controllers\main_controller.py", line 73, in handle_drop_result
-
 Traceback (most recent call last):
-  File "C:\Users\Kamil\Desktop\pharmalyzer\app\controllers\well_edit_controller.py", line 38, in eventFilter
-    if ev.key() == ev.key().Backspace:
-                   ^^^^^^^^^^^^^^^^^^
-AttributeError: 'int' object has no attribute 'Backspace'
+  File "C:\Users\gül\Desktop\SMA_updates\pharmalyzer\app\controllers\main_controller.py", line 269, in _on_analysis_summary_ready
+    self.view.update_summary_labels(summary)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\gül\Desktop\SMA_updates\pharmalyzer\app\views\main_view.py", line 156, in update_summary_labels
+    ui.healthy_avg.setText(f"{s.healthy_avg:.4f}")
+                             ^^^^^^^^^^^^^^^^^^^
+ValueError: Unknown format code 'f' for object of type 'str'

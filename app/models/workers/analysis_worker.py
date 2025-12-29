@@ -2,11 +2,14 @@
 from __future__ import annotations
 import traceback
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
+import pandas as pd
 
+from app.services.analysis_summary import AnalysisSummary
+from app.services.summary_calc import build_summary_from_df
 
 
 class AnalysisWorker(QObject):
-    finished = pyqtSignal(bool)
+    finished = pyqtSignal(bool, object)  # (success, summary_or_none)
     error = pyqtSignal(str)
     progress = pyqtSignal(int, str)
 
@@ -30,7 +33,7 @@ class AnalysisWorker(QObject):
             try:
                 cancel_fn()
             except Exception:
-                print("AnalysisService.cancel() failed")
+                return
 
     def _is_cancelled(self) -> bool:
         return self._cancel_requested
@@ -56,14 +59,24 @@ class AnalysisWorker(QObject):
                 is_cancelled=self._is_cancelled,
             )
 
+            final_df = getattr(self._service, "last_df", None)
+            config = getattr(self._service, "config", None)
+            use_without_reference = bool(getattr(config, "checkbox_status", False))
+
+            summary: AnalysisSummary | None = None
+            if isinstance(final_df, pd.DataFrame):
+                summary = build_summary_from_df(
+                    final_df,
+                    use_without_reference=use_without_reference,
+                )
+
             self._progress(100, "Tamamlandı.")
-            self.finished.emit(bool(success))
+            self.finished.emit(bool(success), summary)
 
         except Exception as e:
             tb = traceback.format_exc()
-            print("Analysis failed: %s\n%s", e, tb)
-            self.error.emit(str(e))
-            self.finished.emit(False)
+            self.error.emit(f"{e}\n{tb}")
+            self.finished.emit(False, None)
 
         finally:
 

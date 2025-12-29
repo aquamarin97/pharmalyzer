@@ -1,5 +1,4 @@
 # app\controllers\main_controller.py
-# app/controllers/main_controller.py
 from __future__ import annotations
 from app.controllers.app.export_controller import ExportController
 from app.controllers.well.well_edit_controller import WellEditController
@@ -16,12 +15,6 @@ from app.views.widgets.pcr_plate_widget import PCRPlateWidget
 from app.views.widgets.regression_graph_view import RegressionGraphView
 from app.views.widgets.pcr_graph_view import PCRGraphView
 from app.controllers.graph.graph_controller import GraphController
-from PyQt5.QtWidgets import (
-    QMessageBox,
-    QWidget,
-    QStyle,
-    QApplication,
-)
 
 class MainController:
     def __init__(self, view: MainView, model: MainModel):
@@ -71,6 +64,7 @@ class MainController:
         m.analysis_progress.connect(self._on_analysis_progress)
         m.analysis_finished.connect(self._on_async_analysis_finished)
         m.analysis_error.connect(self.view.show_warning)
+        m.analysis_summary_ready.connect(self._on_analysis_summary_ready)
 
     # -------------------- Init / Reset --------------------
     def _initialize_components(self) -> None:
@@ -270,3 +264,6 @@ class MainController:
         df = DataStore.get_df_copy()
         if self.regression_graph_view is not None:
             self.regression_graph_view.update(df)
+
+    def _on_analysis_summary_ready(self, summary) -> None:
+        self.view.update_summary_labels(summary)

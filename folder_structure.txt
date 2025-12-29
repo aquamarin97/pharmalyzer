@@ -115,39 +115,4 @@ pharmalyzer/
 │       │   ├── pcr_plate_widget.py
 │       │   └── regression_graph_view.py
 │       └── main_view.py
-├── assets
-│   ├── a.txt
-│   ├── appicon.ico
-│   ├── appicon.png
-│   └── pharmalinelogo.svg
-├── config
-│   └── a.txt
-├── deployments
-│   └── a.txt
-├── docs
-│   └── a.txt
-├── helper
-│   └── tapphelper.py
-├── logs
-│   ├── 3_küme.txt
-│   ├── 5_küme.txt
-│   └── pharmalizer.log
-├── resources
-│   └── a.txt
-├── scripts
-│   └── a.txt
-├── tests
-│   └── a.txt
-├── .gitignore
-├── 1.txt
-├── 15.01.2025_SMA_6871 plate_1.rdml
-├── 24.12.2025-SMA-BONCUK 1 pureprep96 protokol -1.rdml
-├── 26.12.2025-sma-xdp_ile_izole_2.rdml
-├── 5952RUN(İZOTKR)_2024-10-22 16-58-06_CT060754.rdml
-├── final_design_v3_2.ui
-├── git_commends.txt
-├── istatistiksel_degerlendirme.txt
 ├── main.py
-├── main_helper.py
-├── requirements.txt
-└── ui_final_design_v3_2.py
