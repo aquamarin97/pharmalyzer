@@ -111,3 +111,4 @@ class CalculateRegration:
             return model, filtered_df
 
         return model, new_filtered_df
+

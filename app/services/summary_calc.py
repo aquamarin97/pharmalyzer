@@ -35,7 +35,7 @@ def build_summary_from_df(
 
     # İstatistiksel hesaplamalar
     if "Regresyon" in df.columns and ratio_col in df.columns:
-        mask = (df["Regresyon"] == "Güvenli Bölge") &  (df["Nihai Sonuç"] == "Sağlıklı") # (df[ratio_col].between(0.8, 1.2))
+        mask = (df["Regresyon"] == "Güvenli Bölge") & (df[ratio_col].between(0.70, 1.3)) # (df["Nihai Sonuç"] == "Sağlıklı")
         series = pd.to_numeric(df.loc[mask, ratio_col], errors="coerce").dropna()
     else:
         series = pd.Series(dtype=float)
@@ -48,6 +48,14 @@ def build_summary_from_df(
         cv_val = float((std_val / h_avg_val) * 100) if h_avg_val != 0 else 0.0
 
     # Formatlama İşlemleri
+# --- YENİ EKLENEN LOGLAMA BÖLÜMÜ ---
+    print("-" * 30)
+    print("DEBUG: Yuvarlanmadan Önceki Ham Değerler")
+    print(f"Ham Ortalama (h_avg_val): {h_avg_val}")
+    print(f"Ham Std Sapma (std_val): {std_val}")
+    print(f"Ham CV (%): {cv_val}")
+    print("-" * 30)
+    # -----------------------------------
     # Değerlerin başına ":" ekleyerek ve istenen basamak hassasiyetiyle stringe çeviriyoruz
     return AnalysisSummary(
         analyzed_well_count=f": {analyzed_well_count}",
@@ -56,7 +64,7 @@ def build_summary_from_df(
         healthy_count=f": {healthy_count}",
         carrier_count=f": {carrier_count}",
         uncertain_count=f": {uncertain_count}",
-        healthy_avg=f": {h_avg_val:.2f}",
-        std=f": {std_val:.2f}",
+        healthy_avg=f": {h_avg_val:.3f}",
+        std=f": {std_val:.3f}",
         cv=f": {cv_val:.2f}"
     )

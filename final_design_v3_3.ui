@@ -1623,8 +1623,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1642,8 +1642,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1661,8 +1661,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1680,8 +1680,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1699,8 +1699,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1718,8 +1718,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1737,8 +1737,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1756,8 +1756,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1775,8 +1775,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1794,8 +1794,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1813,8 +1813,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1832,8 +1832,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1851,8 +1851,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1870,8 +1870,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1889,8 +1889,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1908,8 +1908,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1927,8 +1927,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">
@@ -1946,8 +1946,8 @@ color: White</string>
              <font>
               <family>Arial</family>
               <pointsize>10</pointsize>
-              <weight>50</weight>
-              <bold>false</bold>
+              <weight>75</weight>
+              <bold>true</bold>
              </font>
             </property>
             <property name="styleSheet">

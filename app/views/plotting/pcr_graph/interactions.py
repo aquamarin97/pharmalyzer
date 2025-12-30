@@ -86,9 +86,6 @@ def on_motion(r, event) -> None:
     well = hit_test.find_well_at_event(r, event)
     apply_hover_from_graph(r, well)
 
-    if r._selecting and well:
-        selection.add_to_selection(r, well)
-
 
 def on_button_press(r, event) -> None:
     if event.button != 1:
@@ -97,10 +94,6 @@ def on_button_press(r, event) -> None:
         return
     r._selecting = True
     r._selection_buffer.clear()
-
-    well = hit_test.find_well_at_event(r, event)
-    if well:
-        selection.add_to_selection(r, well)
 
 
 # app/views/plotting/pcr_graph/interactions.py içindeki kritik düzeltme
@@ -115,17 +108,6 @@ def on_button_release(r, event) -> None:
         r._selecting = False # Güvenlik için normal modu da kapat
         return
 
-    # SADECE normal tıklama/sürükleme modundaysak bu blok çalışmalı
-    if r._selecting:
-        # Eğer mouse bırakıldığında hiçbir şey seçilmemişse (buffer boşsa)
-        # ve mouse koordinatı bir kuyu üzerinde değilse seçimi temizle.
-        if not r._selection_buffer and r._store is not None:
-            well = hit_test.find_well_at_event(r, event)
-            if not well:
-                # İşte Store'u sıfırlayan o tehlikeli satır burasıydı.
-                # Artık sadece normal seçim modunda ve boşluğa tıklanınca çalışacak.
-                r._store.clear_selection()
-    
     # Temizlik
     r._selecting = False
     r._selection_buffer.clear()
@@ -164,10 +146,10 @@ def on_rect_motion(r, event) -> None:
 
 
 def on_rectangle_select(r, eclick, erelease) -> None:
-    changed = selection.handle_rectangle_select(r, eclick, erelease)
-    if not changed:
+    wells = selection.handle_rectangle_select(r, eclick, erelease)
+    if not wells:
         return
-    set_rect_preview(r, set())
+    set_rect_preview(r, wells)
     _apply_styles(r)
 
 

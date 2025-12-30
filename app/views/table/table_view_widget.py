@@ -25,7 +25,7 @@ class TableViewWidget(QTableView):
         header.setDefaultAlignment(Qt.AlignCenter)  # <-- text-align yerine
 
         # İstersen: header resize mode sabit kalsın (manuel width veriyoruz)
-        header.setSectionResizeMode(QHeaderView.Fixed)
+        # header.setSectionResizeMode(QHeaderView.Fixed)
 
         self._resize_pending = False
         self.column_expansion_ratios = []
