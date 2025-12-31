@@ -1,6 +1,7 @@
 # app\services\analysis_service.py
 from __future__ import annotations
 
+from app.services.analysis_steps.calculate_regression import CalculateRegression
 from dataclasses import dataclass
 from typing import Callable, Optional
 import pandas as pd
@@ -8,7 +9,6 @@ import pandas as pd
 from app.services.pipeline import Pipeline, Step, CancelledError
 
 from app.services.analysis_steps.calculate_with_referance import CalculateWithReferance
-from app.services.analysis_steps.calculate_regration import CalculateRegration
 from app.services.analysis_steps.calculate_without_reference import CalculateWithoutReference
 from app.services.analysis_steps.configurate_result_csv import ConfigurateResultCSV
 from app.services.analysis_steps.csv_processor import CSVProcessor
@@ -76,7 +76,7 @@ class AnalysisService:
             self.config.carrier_range,
             self.config.uncertain_range,
         )
-        reg_step = CalculateRegration()
+        reg_step = CalculateRegression()
         sw_step = CalculateWithoutReference(
             carrier_range=self.config.carrier_range,
             uncertain_range=self.config.uncertain_range,

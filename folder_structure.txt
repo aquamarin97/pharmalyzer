@@ -54,9 +54,9 @@ pharmalyzer/
 │   │   └── main_model.py
 │   ├── services
 │   │   ├── analysis_steps
-│   │   │   ├── calculate_regration.py
+│   │   │   ├── calculate_regression.py
 │   │   │   ├── calculate_with_referance.py
-│   │   │   ├── calculate_without_referance.py
+│   │   │   ├── calculate_without_reference.py
 │   │   │   ├── configurate_result_csv.py
 │   │   │   └── csv_processor.py
 │   │   ├── export
@@ -68,13 +68,15 @@ pharmalyzer/
 │   │   ├── graph
 │   │   │   └── pcr_graph_layout_service.py
 │   │   ├── analysis_service.py
+│   │   ├── analysis_summary.py
 │   │   ├── colored_box_service.py
 │   │   ├── data_store.py
 │   │   ├── interaction_store.py
 │   │   ├── pcr_data_service.py
 │   │   ├── pipeline.py
 │   │   ├── rdml_service.py
-│   │   └── regression_plot_service.py
+│   │   ├── regression_plot_service.py
+│   │   └── summary_calc.py
 │   ├── utils
 │   │   ├── rdml
 │   │   │   ├── rdml_parser.py
@@ -115,4 +117,37 @@ pharmalyzer/
 │       │   ├── pcr_plate_widget.py
 │       │   └── regression_graph_view.py
 │       └── main_view.py
+├── assets
+│   ├── a.txt
+│   ├── appicon.ico
+│   ├── appicon.png
+│   └── pharmalinelogo.svg
+├── config
+│   └── a.txt
+├── deployments
+│   └── a.txt
+├── docs
+│   └── a.txt
+├── helper
+│   └── tapphelper.py
+├── logs
+│   ├── 3_küme.txt
+│   ├── 5_küme.txt
+│   └── pharmalizer.log
+├── resources
+│   └── a.txt
+├── scripts
+│   └── a.txt
+├── tests
+├── .gitignore
+├── 15.01.2025_SMA_6871 plate_1.rdml
+├── 24.12.2025-SMA-BONCUK 1 pureprep96 protokol -1.rdml
+├── 26.12.2025-sma-xdp_ile_izole_2 - Kopya.zip
+├── 26.12.2025-sma-xdp_ile_izole_2.rdml
+├── 26.12.2025-sma-xdp_ile_izole_2.xml
+├── 5952RUN(İZOTKR)_2024-10-22 16-58-06_CT060754.rdml
+├── final_design_v3_3.ui
+├── git_commends.txt
 ├── main.py
+├── main_helper.py
+└── requirements.txt

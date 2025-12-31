@@ -4,24 +4,24 @@ from __future__ import annotations
 from typing import Set
 
 from PyQt5.QtCore import QPoint, Qt, QTimer
-from PyQt5.QtGui import QColor, QPainter, QPen, QPolygon
+from PyQt5.QtGui import QColor, QPainter, QPen, QPolygon, QLinearGradient
 from PyQt5.QtWidgets import QHeaderView, QTableWidget, QTableWidgetItem, QWidget, QVBoxLayout
-from PyQt5.QtGui import QLinearGradient
 
 from app.services.interaction_store import InteractionStore
 from app.utils import well_mapping
 
 
 class _PlateTable(QTableWidget):
-    def __init__(self, parent, hover_index_getter, on_hover_move, on_mouse_press):
+    def __init__(self, parent, hover_index_getter, on_hover_move, on_mouse_press, on_mouse_move=None, on_mouse_release=None):
         super().__init__(parent)
         self._hover_index_getter = hover_index_getter
         self._on_hover_move = on_hover_move
         self._on_mouse_press = on_mouse_press
+        self._on_mouse_move = on_mouse_move
+        self._on_mouse_release = on_mouse_release
         self._selected_header_rows = set()
         self._selected_header_cols = set()
         self._preview_cells: Set[tuple[int, int]] = set() 
-        
         
     def paintEvent(self, event):
         super().paintEvent(event)
@@ -173,7 +173,10 @@ class _PlateTable(QTableWidget):
         painter.restore()
 
     def mouseMoveEvent(self, event):
-        self._on_hover_move(event)
+        if self._on_mouse_move:
+            self._on_mouse_move(event)
+        else:
+            self._on_hover_move(event)
         super().mouseMoveEvent(event)
 
     def leaveEvent(self, event):
@@ -183,11 +186,24 @@ class _PlateTable(QTableWidget):
     def mousePressEvent(self, event):
         self._on_mouse_press(event)
         super().mousePressEvent(event)
-        
+
+    def mouseReleaseEvent(self, event):
+        if self._on_mouse_release:
+            self._on_mouse_release(event)
+        super().mouseReleaseEvent(event)
+
     def set_preview_cells(self, cells: Set[tuple[int, int]]) -> None:
         if cells == self._preview_cells:
             return
         self._preview_cells = cells
+        self.viewport().update()
+
+    def set_selected_headers(self, rows: set[int], cols: set[int]) -> None:
+        """Header seçim state'ini kapsülle; gereksiz repaint'i azalt."""
+        if rows == self._selected_header_rows and cols == self._selected_header_cols:
+            return
+        self._selected_header_rows = rows
+        self._selected_header_cols = cols
         self.viewport().update()
 
 class PCRPlateWidget(QWidget):
@@ -217,13 +233,25 @@ class PCRPlateWidget(QWidget):
         self._hover_row: int | None = None
         self._hover_col: int | None = None
         self._preview_cells: Set[tuple[int, int]] = set()
-        
-        
+        self._anchor_cell: tuple[int, int] | None = None
+        self._dragging: bool = False
+        self._drag_mode: str | None = None
+        self._drag_visited: Set[str] = set()
+        self._drag_base_selection: Set[str] = set()
+        self._drag_current_selection: Set[str] = set()
+        self._drag_last_cell: tuple[int, int] | None = None
+
+        # UI diff/cache
+        self._last_selected_wells: Set[str] = set()
+        self._last_hover_well_sent: str | None = None
+
         self.table = _PlateTable(
             self,
             hover_index_getter=self._get_hover_index,
             on_hover_move=self._handle_mouse_move,
             on_mouse_press=self._handle_mouse_press,
+            on_mouse_move=self._handle_mouse_move,
+            on_mouse_release=self._handle_mouse_release,
         )
         self.table.setMouseTracking(True)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -304,25 +332,48 @@ class PCRPlateWidget(QWidget):
 
     # ---- mouse events ----
     def _handle_mouse_move(self, event):
+        # --- mouse left / invalid area ---
         if event is None:
+            if self._hover_row is None and self._hover_col is None:
+                return
             self._hover_row = None
             self._hover_col = None
-            if self._store is not None:
+            if self._store is not None and self._last_hover_well_sent is not None:
                 self._store.set_hover(None)
+                self._last_hover_well_sent = None
             self.table.viewport().update()
             return
 
         idx = self.table.indexAt(event.pos())
         if not idx.isValid():
+            if self._hover_row is None and self._hover_col is None:
+                return
+            self._hover_row = None
+            self._hover_col = None
+            if self._store is not None and self._last_hover_well_sent is not None:
+                self._store.set_hover(None)
+                self._last_hover_well_sent = None
+            self.table.viewport().update()
             return
 
-        # ✅ header dahil her hücrede hover index’i güncelle
-        self._hover_row, self._hover_col = idx.row(), idx.column()
+        row, col = idx.row(), idx.column()
 
-        # ✅ sadece body hücreleri için store hover (well) güncelle
+        # drag sadece body'de devam etsin
+        if self._dragging and event.buttons() & Qt.LeftButton and row > 0 and col > 0:
+            self._continue_drag(row, col)
+
+        # hover değişmediyse repaint/store spam yapma
+        if row == self._hover_row and col == self._hover_col:
+            return
+
+        self._hover_row, self._hover_col = row, col
+
+        # sadece body hücreleri için store hover (well) güncelle
         if self._store is not None:
-            well = well_mapping.table_index_to_well_id(idx.row(), idx.column())
-            self._store.set_hover(well)  # well None ise None olur, sorun değil
+            well = well_mapping.table_index_to_well_id(row, col) if (row > 0 and col > 0) else None
+            if well != self._last_hover_well_sent:
+                self._store.set_hover(well)
+                self._last_hover_well_sent = well
 
         self.table.viewport().update()
 
@@ -331,53 +382,91 @@ class PCRPlateWidget(QWidget):
             return
 
         idx = self.table.indexAt(event.pos())
-        wells = well_mapping.wells_for_header(idx.row(), idx.column())
-        if not wells:
-            self._store.clear_selection()
+        if not idx.isValid():
             return
 
-        if event.modifiers() & Qt.ControlModifier:
-            self._store.toggle_wells(wells)
-        else:
-            self._store.set_selection(wells)
+        row, col = idx.row(), idx.column()
+        wells = well_mapping.wells_for_header(row, col)
+        if not wells:
+            self._store.clear_selection()
+            self._anchor_cell = None
+            return
+
+        if event.modifiers() & Qt.ShiftModifier and row > 0 and col > 0:
+            self._apply_range_selection(row, col, event.modifiers())
+            return
+
+        if row == 0 or col == 0:
+            self._apply_header_toggle(wells)
+            self._anchor_cell = None
+            return
+
+        self._start_drag(row, col, wells)
 
     def _on_selection_changed(self, selected_wells: Set[str]) -> None:
-        for row in range(self.HEADER_ROWS, self.table.rowCount()):
-            for col in range(self.HEADER_COLS, self.table.columnCount()):
-                well = well_mapping.table_index_to_well_id(row, col)
-                item = self.table.item(row, col)
-                if item and well:
-                    if well in selected_wells:
-                        item.setBackground(self.COLOR_SELECTED)
-                        item.setForeground(Qt.white)
-                    else:
-                        item.setBackground(self.COLOR_BASE)
-                        item.setForeground(Qt.black)
-        selected_rows = set()
-        selected_cols = set()
+        # --- body cell renklerini sadece diff ile güncelle ---
+        prev = self._last_selected_wells
+        new = set(selected_wells or set())
 
-        for well in selected_wells:
-            r, c = well_mapping.well_id_to_table_index(well)
-            selected_rows.add(r)
-            selected_cols.add(c)
+        added = new - prev
+        removed = prev - new
 
-        self.table._selected_header_rows = selected_rows
-        self.table._selected_header_cols = selected_cols
-        self.table.viewport().update()
+        def apply_well(well_id: str, is_selected: bool) -> None:
+            try:
+                r, c = well_mapping.well_id_to_table_index(well_id)
+            except ValueError:
+                return
+            item = self.table.item(r, c)
+            if not item:
+                return
+            if is_selected:
+                item.setBackground(self.COLOR_SELECTED)
+                item.setForeground(Qt.white)
+            else:
+                item.setBackground(self.COLOR_BASE)
+                item.setForeground(Qt.black)
+
+        for w in added:
+            apply_well(w, True)
+        for w in removed:
+            apply_well(w, False)
+
+        self._last_selected_wells = new
+
+        # --- header seçili mi? (tüm satır/sütun seçili ise) ---
+        selected_rows: set[int] = set()
+        selected_cols: set[int] = set()
+
+        for r_idx in range(1, len(well_mapping.ROWS) + 1):
+            row_wells = well_mapping.wells_for_header(r_idx, 0)
+            if row_wells and row_wells.issubset(new):
+                selected_rows.add(r_idx)
+
+        for c_idx in range(1, len(well_mapping.COLUMNS) + 1):
+            col_wells = well_mapping.wells_for_header(0, c_idx)
+            if col_wells and col_wells.issubset(new):
+                selected_cols.add(c_idx)
+
+        self.table.set_selected_headers(selected_rows, selected_cols)
 
 
     def _on_hover_changed(self, well: str | None) -> None:
+        # Store'dan gelen hover'ı UI'a yansıt (grafik -> plate gibi)
         if well is None:
+            if self._hover_row is None and self._hover_col is None:
+                return
             self._hover_row = None
             self._hover_col = None
         else:
             try:
-                self._hover_row, self._hover_col = well_mapping.well_id_to_table_index(well)
+                r, c = well_mapping.well_id_to_table_index(well)
             except ValueError:
-                self._hover_row = None
-                self._hover_col = None
+                r, c = None, None
+            if r == self._hover_row and c == self._hover_col:
+                return
+            self._hover_row, self._hover_col = r, c
+
         self.table.viewport().update()
-        self.update()
 
     def _on_preview_changed(self, wells: Set[str]) -> None:
         preview_cells: Set[tuple[int, int]] = set()
@@ -431,7 +520,6 @@ class PCRPlateWidget(QWidget):
     def showEvent(self, event):
         super().showEvent(event)
         QTimer.singleShot(0, self._resize_columns_to_fit)
-
     def _resize_columns_to_fit(self) -> None:
         column_count = self.table.columnCount()
         if column_count == 0:
@@ -453,3 +541,105 @@ class PCRPlateWidget(QWidget):
         for col in range(column_count):
             width = target_width + (1 if col < remainder else 0)
             self.table.setColumnWidth(col, width)
+
+    # ---- selection helpers ----
+    def _apply_header_toggle(self, wells: Set[str]) -> None:
+        if self._store is None or not wells:
+            return
+
+        selected = set(self._store.selected_wells)
+        selected_count = len(selected & wells)
+        total = len(wells)
+
+        if selected_count == total or selected_count > total / 2:
+            selected -= wells
+        else:
+            selected |= wells
+
+        self._store.set_selection(selected)
+
+    def _apply_range_selection(self, row: int, col: int, modifiers: Qt.KeyboardModifiers) -> None:
+        if self._store is None:
+            return
+
+        anchor = self._anchor_cell or (row, col)
+        min_row, max_row = sorted((anchor[0], row))
+        min_col, max_col = sorted((anchor[1], col))
+
+        wells: Set[str] = set()
+        for r in range(min_row, max_row + 1):
+            for c in range(min_col, max_col + 1):
+                well = well_mapping.table_index_to_well_id(r, c)
+                if well:
+                    wells.add(well)
+
+        if modifiers & Qt.ControlModifier:
+            updated = set(self._store.selected_wells)
+            for w in wells:
+                if w in updated:
+                    updated.remove(w)
+                else:
+                    updated.add(w)
+            self._store.set_selection(updated)
+        else:
+            self._store.set_selection(wells)
+
+        self._anchor_cell = (row, col)
+
+    def _start_drag(self, row: int, col: int, wells: Set[str]) -> None:
+        if self._store is None:
+            return
+
+        self._dragging = True
+        self._drag_last_cell = (row, col)
+        first_well = next(iter(wells))
+        self._drag_mode = "remove" if first_well in self._store.selected_wells else "add"
+        self._drag_visited = set()
+        self._drag_base_selection = set(self._store.selected_wells)
+        self._drag_current_selection = set(self._drag_base_selection)
+        self._anchor_cell = (row, col)
+        self._apply_drag_wells(wells)
+
+    def _continue_drag(self, row: int, col: int) -> None:
+        if self._store is None or not self._dragging:
+            return
+
+        if (row, col) == self._drag_last_cell:
+            return
+
+        wells = well_mapping.wells_for_header(row, col)
+        if not wells:
+            return
+
+        self._drag_last_cell = (row, col)
+        self._apply_drag_wells(wells)
+
+    def _apply_drag_wells(self, wells: Set[str]) -> None:
+        if self._store is None or not self._dragging or not self._drag_mode:
+            return
+
+        new_wells = {w for w in wells if w not in self._drag_visited}
+        if not new_wells:
+            return
+
+        self._drag_visited |= new_wells
+        if self._drag_mode == "add":
+            self._drag_current_selection |= new_wells
+        else:
+            self._drag_current_selection -= new_wells
+
+        self._store.set_selection(self._drag_current_selection)
+
+    def _handle_mouse_release(self, event) -> None:
+        if event.button() != Qt.LeftButton:
+            return
+
+        if self._dragging and self._store is not None:
+            self._store.set_preview(set())
+
+        self._dragging = False
+        self._drag_mode = None
+        self._drag_visited.clear()
+        self._drag_base_selection.clear()
+        self._drag_current_selection.clear()
+        self._drag_last_cell = None

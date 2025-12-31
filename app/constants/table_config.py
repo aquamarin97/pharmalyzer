@@ -1,5 +1,4 @@
 # app\constants\table_config.py
-# app/constants/table_config.py
 from PyQt5.QtGui import QColor
 
 # ----- TABLE / DROPDOWN -----
@@ -30,7 +29,7 @@ CSV_FILE_HEADERS = [
 ]
 
 TABLE_WIDGET_HEADERS = [
-    "Hasta No", "Kuyu No", "Barkot No", "Hasta Adı",  "Δ Ct", "Regresyon",
+    "Hasta No", "Kuyu No", "Barkot No", "Uyarı", "Hasta Adı",  "Δ Ct", "Regresyon",
     "İstatistik Oranı", "Standart Oranı", "Nihai Sonuç",
 ]
 

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# app\views\ui\ui.py
 
 # Form implementation generated from reading ui file 'final_design_v3_3.ui'
 #
@@ -236,7 +236,7 @@ class Ui_MainWindow(object):
         self.logo_container.setStyleSheet("QLabel{\n"
 "background-color:transparent}")
         self.logo_container.setText("")
-        self.logo_container.setPixmap(QtGui.QPixmap("../../sma_gui_v7_last/pharmalinelogo.svg"))
+        self.logo_container.setPixmap(QtGui.QPixmap("assets/pharmalinelogo.svg"))
         self.logo_container.setScaledContents(True)
         self.logo_container.setObjectName("logo_container")
         self.Layout_inputs.addWidget(self.logo_container, 0, 0, 1, 6)

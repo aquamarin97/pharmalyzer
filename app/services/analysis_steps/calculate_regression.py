@@ -1,4 +1,4 @@
-# app\services\analysis_steps\calculate_regration.py
+# app\services\analysis_steps\calculate_regression.py
 # app/services/analysis_steps/calculate_regration.py
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from sklearn.linear_model import LinearRegression
 logger = logging.getLogger(__name__)
 
 
-class CalculateRegration:
+class CalculateRegression:
     def __init__(self):
         self.df: pd.DataFrame | None = None
 

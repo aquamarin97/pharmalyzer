@@ -5,6 +5,7 @@ from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QFileDialog
 
 from app.views.ui.ui import Ui_MainWindow
+from app.services.analysis_summary import AnalysisSummary
 
 
 class MainView(QMainWindow):
@@ -116,6 +117,9 @@ class MainView(QMainWindow):
         self.set_widget_color(self.ui.saglikli_kontrol_color_box, init_color)
         self.set_widget_color(self.ui.tasiyici_kontrol_color_box, init_color)
         self.set_widget_color(self.ui.ntc_kontrol_color_box, init_color)
+
+    def reset_summary_labels(self) -> None:
+        self.update_summary_labels(AnalysisSummary())  # hepsini "" yapar
 
     def update_colored_box_widgets(self, result: list) -> None:
         if len(result) != 3:

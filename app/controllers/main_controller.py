@@ -48,7 +48,6 @@ class MainController:
         v.import_requested.connect(self._on_import_requested)
         v.export_requested.connect(self._on_export_requested)
         v.clear_requested.connect(self._initialize_components)
-
         v.stats_toggled.connect(self._on_stats_toggled)
         v.carrier_range_changed.connect(lambda val: self._validate_and_set_range(val, "carrier"))
         v.uncertain_range_changed.connect(lambda val: self._validate_and_set_range(val, "uncertain"))
@@ -82,6 +81,7 @@ class MainController:
         self._setup_interaction_controller()
         
         self.view.reset_box_colors()
+        self.view.reset_summary_labels()
         self.view.set_analyze_enabled(False)
         self.view.set_dragdrop_label("RDML dosyanızı sürükleyip bırakınız")
         self._reset_regression_graph()
