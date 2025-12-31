@@ -14,6 +14,9 @@ from app.services.pcr_data_service import PCRCoords
 from . import drawing, interactions, styles
 from .axes import setup_axes
 
+from . import drawing, interactions, styles
+from .axes import setup_axes
+
 
 class PCRGraphRenderer(FigureCanvas):
     """
@@ -35,6 +38,8 @@ class PCRGraphRenderer(FigureCanvas):
         self._hover_well: Optional[str] = None
         self._fam_visible = True
         self._hex_visible = True
+        self._rendered_wells: Set[str] = set()
+        self._data_cache_token: int = 0
 
         self._line_to_well: Dict[Line2D, str] = {}
         self._store: InteractionStore | None = None
@@ -53,6 +58,8 @@ class PCRGraphRenderer(FigureCanvas):
         self._fam_lines.clear()
         self._hex_lines.clear()
         self._line_to_well.clear()
+        self._rendered_wells.clear()
+        self._data_cache_token = 0
         self.ax.clear()
         setup_axes(self)
         self.ax.set_title(self._title)
@@ -63,14 +70,30 @@ class PCRGraphRenderer(FigureCanvas):
         super().closeEvent(event)
 
     # ---- rendering ----
-    def render_wells(self, data: Dict[str, PCRCoords]) -> None:
+    def render_wells(self, data: Dict[str, PCRCoords], *, cache_token: int | None = None) -> None:
         """
         Verilen kuyu koordinatlarını çiz.
 
         Params:
             data: kuyu_id -> PCRCoords
         """
+        incoming_wells = set(data.keys())
+        token = cache_token if cache_token is not None else self._data_cache_token
+
+        if incoming_wells and incoming_wells == self._rendered_wells and token == self._data_cache_token:
+            styles.apply_interaction_styles(
+                self,
+                hovered=self._hover_well,
+                selected=set(self._store.selected_wells) if self._store else set(),
+                preview=interactions.collect_preview_wells(self),
+            )
+            self.ax.set_title(self._title)
+            self.draw_idle()
+            return
+
         drawing.render_wells(self, data)
+        self._rendered_wells = incoming_wells
+        self._data_cache_token = token
         styles.apply_interaction_styles(
             self,
             hovered=self._hover_well,

@@ -41,10 +41,12 @@ def bind_interaction_store(r, store) -> None:
 
 
 def set_hover(r, well: Optional[str]) -> None:
-    r._hover_well = well if well_mapping.is_valid_well_id(well) else None
+    normalized = well if well_mapping.is_valid_well_id(well) else None
+    if normalized == r._hover_well:
+        return
+    r._hover_well = normalized
     _apply_styles(r)
     r.draw_idle()
-
 
 def apply_hover_from_graph(r, well: Optional[str]) -> None:
     if r._store is not None:

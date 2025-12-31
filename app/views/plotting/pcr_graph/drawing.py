@@ -1,15 +1,13 @@
 # app\views\plotting\pcr_graph\drawing.py
 # app/views/plotting/pcr/drawing.py
-from typing import Dict, List
-
-from matplotlib.lines import Line2D
-
 from app.services.graph.pcr_graph_layout_service import PCRGraphLayoutService
+import app.utils
 from app.services.pcr_data_service import PCRCoords
-from app.utils import well_mapping
-
 from .axes import setup_axes
 
+from typing import Dict, List
+from app.utils import well_mapping
+from matplotlib.lines import Line2D
 
 def render_wells(r, data: Dict[str, PCRCoords]) -> None:
     r._fam_lines.clear()
@@ -32,18 +30,21 @@ def render_wells(r, data: Dict[str, PCRCoords]) -> None:
         if coords is None:
             continue
 
-        fam_coords = coords.fam or []
-        hex_coords = coords.hex or []
+        fam_coords = coords.fam
+        hex_coords = coords.hex
 
-        if fam_coords:
-            fam_all.extend(fam_coords)
-            fam_x, fam_y = zip(*fam_coords)
+        fam_has_data = fam_coords.size > 0
+        hex_has_data = hex_coords.size > 0
+
+        if fam_has_data:
+            fam_all.extend(fam_coords.tolist())
+            fam_x, fam_y = fam_coords[:, 0], fam_coords[:, 1]
         else:
             fam_x, fam_y = [], []
 
-        if hex_coords:
-            hex_all.extend(hex_coords)
-            hex_x, hex_y = zip(*hex_coords)
+        if hex_has_data:
+            hex_all.extend(hex_coords.tolist())
+            hex_x, hex_y = hex_coords[:, 0], hex_coords[:, 1]
         else:
             hex_x, hex_y = [], []
 

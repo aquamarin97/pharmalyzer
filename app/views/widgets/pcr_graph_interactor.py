@@ -22,6 +22,8 @@ class PCRGraphInteractor:
         self.renderer = renderer
         self.data_service = data_service
         self.store: InteractionStore | None = None
+        self._last_selection: Set[str] = set()
+        self._last_cache_token: int | None = None
 
     def set_interaction_store(self, store: InteractionStore, data_service: PCRDataService | None = None) -> None:
         self._disconnect_store()
@@ -48,21 +50,32 @@ class PCRGraphInteractor:
             self.renderer.reset()
             return
 
-        if not wells:
+        normalized_wells = {w for w in wells if well_mapping.is_valid_well_id(w)}
+        if not normalized_wells:
+            self._last_selection = set()
+            self._last_cache_token = None
             self.renderer.reset()
             return
 
         try:
-            data = self.data_service.get_coords_for_wells(wells)
+            data = self.data_service.get_coords_for_wells(normalized_wells)
+            cache_token = self.data_service.get_cache_token()
         except Exception as exc:
             logger.warning("PCR koordinatları alınamadı: %s", exc, exc_info=True)
             self.renderer.reset()
             return
 
-        self.renderer.render_wells(data)
+        if normalized_wells == self._last_selection and cache_token == self._last_cache_token:
+            return
+
+        self._last_selection = normalized_wells
+        self._last_cache_token = cache_token
+        self.renderer.render_wells(data, cache_token=cache_token)
 
     def _on_hover_changed(self, well: Optional[str]) -> None:
         normalized = well if well_mapping.is_valid_well_id(well) else None
+        if normalized == self.renderer._hover_well:
+            return
         self.renderer.set_hover(normalized)
 
     # ---- helpers ----
@@ -83,3 +96,5 @@ class PCRGraphInteractor:
         except Exception:
             # Qt disconnect'i sessizce geçebilir; exception'a gerek yok
             pass
+        self._last_selection = set()
+        self._last_cache_token = None
