@@ -11,7 +11,7 @@ from app.services.data_store import DataStore
 from app.controllers.interaction.interaction_controller import InteractionController
 from app.views.main_view import MainView
 from app.models.main_model import MainModel
-from app.views.widgets.pcr_plate_widget import PCRPlateWidget
+from app.views.widgets.pcr_plate.pcr_plate_widget import PCRPlateWidget
 from app.views.widgets.regression_graph_view import RegressionGraphView
 from app.views.widgets.pcr_graph_view import PCRGraphView
 from app.controllers.graph.graph_controller import GraphController

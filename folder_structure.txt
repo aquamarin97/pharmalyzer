@@ -24,6 +24,7 @@ pharmalyzer/
 │   │   │   └── graph_controller.py
 │   │   ├── interaction
 │   │   │   └── interaction_controller.py
+│   │   ├── pcr_plate
 │   │   ├── table
 │   │   │   ├── highlight_sync.py
 │   │   │   ├── selection_sync.py
@@ -112,9 +113,23 @@ pharmalyzer/
 │       ├── ui
 │       │   └── ui.py
 │       ├── widgets
+│       │   ├── pcr_plate
+│       │   │   ├── interaction
+│       │   │   │   ├── drag_select.py
+│       │   │   │   ├── header_select.py
+│       │   │   │   └── range_select.py
+│       │   │   ├── paint
+│       │   │   │   ├── corner.py
+│       │   │   │   ├── header_selection.py
+│       │   │   │   └── hover_preview.py
+│       │   │   ├── setup
+│       │   │   │   ├── grid_setup.py
+│       │   │   │   └── resizing.py
+│       │   │   ├── pcr_plate_table.py
+│       │   │   ├── pcr_plate_widget.py
+│       │   │   └── store_binding.py
 │       │   ├── pcr_graph_interactor.py
 │       │   ├── pcr_graph_view.py
-│       │   ├── pcr_plate_widget.py
 │       │   └── regression_graph_view.py
 │       └── main_view.py
 ├── assets
@@ -142,7 +157,6 @@ pharmalyzer/
 ├── .gitignore
 ├── 15.01.2025_SMA_6871 plate_1.rdml
 ├── 24.12.2025-SMA-BONCUK 1 pureprep96 protokol -1.rdml
-├── 26.12.2025-sma-xdp_ile_izole_2 - Kopya.zip
 ├── 26.12.2025-sma-xdp_ile_izole_2.rdml
 ├── 26.12.2025-sma-xdp_ile_izole_2.xml
 ├── 5952RUN(İZOTKR)_2024-10-22 16-58-06_CT060754.rdml
