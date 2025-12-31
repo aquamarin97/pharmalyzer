@@ -17,11 +17,18 @@ class DragSelection:
     last_cell: tuple[int, int] | None = None
     anchor_cell: tuple[int, int] | None = None
 
-    def start(self, row: int, col: int, wells: Set[str], selected_wells: Set[str]) -> Set[str] | None:
+    def start(
+        self,
+        row: int,
+        col: int,
+        wells: Set[str],
+        selected_wells: Set[str],
+        force_mode: str | None = None,
+    ) -> Set[str] | None:
         self.dragging = True
         self.last_cell = (row, col)
         first_well = next(iter(wells))
-        self.mode = "remove" if first_well in selected_wells else "add"
+        self.mode = force_mode or ("remove" if first_well in selected_wells else "add")
         self.visited = set()
         self.base_selection = set(selected_wells)
         self.current_selection = set(self.base_selection)

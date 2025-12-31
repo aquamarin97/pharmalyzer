@@ -185,7 +185,12 @@ class PCRPlateWidget(QWidget):
             self._anchor_cell = None
             return
 
-        self._start_drag(row, col, wells)
+        force_mode = None
+        if event.modifiers() == Qt.NoModifier and row > 0 and col > 0:
+            self._store.set_selection(wells)
+            force_mode = "add"
+
+        self._start_drag(row, col, wells, force_mode)
 
     def _handle_mouse_release(self, event) -> None:
         if event.button() != Qt.LeftButton:
@@ -197,11 +202,11 @@ class PCRPlateWidget(QWidget):
         self._drag_selection.reset()
 
     # ---- interaction helpers ----
-    def _start_drag(self, row: int, col: int, wells: Set[str]) -> None:
+    def _start_drag(self, row: int, col: int, wells: Set[str], force_mode: str | None = None) -> None:
         if self._store is None:
             return
 
-        selection = self._drag_selection.start(row, col, wells, set(self._store.selected_wells))
+        selection = self._drag_selection.start(row, col, wells, set(self._store.selected_wells), force_mode)
         self._anchor_cell = self._drag_selection.anchor_cell
         if selection is not None:
             self._store.set_selection(selection)
@@ -216,7 +221,7 @@ class PCRPlateWidget(QWidget):
         updated_selection = self._drag_selection.apply_from_position(row, col)
         if updated_selection is not None:
             self._store.set_selection(updated_selection)
-
+            
     # ---- interaction callbacks ----
     def _on_selection_changed(self, selected_wells: Set[str]) -> None:
         prev = self._last_selected_wells
