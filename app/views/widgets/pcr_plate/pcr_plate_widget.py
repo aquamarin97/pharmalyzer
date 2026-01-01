@@ -8,14 +8,14 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QAbstractItemView, QHeaderView, QWidget, QVBoxLayout
 
-from app.services.interaction_store import InteractionStore
-from app.utils import well_mapping
+from app.services.data_management import well_mapping
 from app.views.widgets.pcr_plate.interaction.drag_select import DragSelection
 from app.views.widgets.pcr_plate.interaction.header_select import toggle_header_selection
 from app.views.widgets.pcr_plate.interaction.range_select import apply_range_selection
 from app.views.widgets.pcr_plate.pcr_plate_table import PlateTable
 from app.views.widgets.pcr_plate.setup.grid_setup import initialize_grid
 from app.views.widgets.pcr_plate.setup.resizing import resize_columns_to_fit
+from app.services.data_management.interaction_store import InteractionStore
 
 
 class PCRPlateWidget(QWidget):

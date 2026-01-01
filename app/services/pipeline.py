@@ -7,8 +7,8 @@ from collections.abc import Iterable
 from typing import Callable, Optional
 
 import pandas as pd
+from app.services.data_management.data_store import DataStore
 
-from app.services.data_store import DataStore
 
 # Tip tanımlamaları (Type Hinting)
 Transform = Callable[[pd.DataFrame], pd.DataFrame]

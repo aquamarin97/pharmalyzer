@@ -8,10 +8,9 @@ from app.controllers.app.export_controller import ExportController
 from app.controllers.well.well_edit_controller import WellEditController
 from app.controllers.table.table_controller import AppTableController
 from app.controllers.app.drag_drop_controller import DragDropController
-from app.services.interaction_store import InteractionStore
 from app.services.pcr_data_service import PCRDataService
 from app.services.export.export_options import ExportOptions
-from app.services.data_store import DataStore
+from app.services.data_management.data_store import DataStore
 from app.controllers.interaction.interaction_controller import InteractionController
 from app.views.main_view import MainView
 from app.models.main_model import MainModel
@@ -19,6 +18,7 @@ from app.views.widgets.pcr_plate.pcr_plate_widget import PCRPlateWidget
 from app.views.widgets.regression_graph_view import RegressionGraphView
 from app.views.widgets.pcr_graph_view import PCRGraphView
 from app.controllers.graph.graph_controller import GraphController
+from app.services.data_management.interaction_store import InteractionStore
 
 logger = logging.getLogger(__name__)
 

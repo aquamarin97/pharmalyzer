@@ -11,12 +11,13 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from app.services.data_store import DataStore
 
 logger = logging.getLogger(__name__)
 
 Coord = Tuple[int, float]
-from app.utils import well_mapping
+from app.services.data_management import well_mapping
+from app.services.data_management.data_store import DataStore
+
 
 @dataclass(frozen=True)
 class PCRCoords:

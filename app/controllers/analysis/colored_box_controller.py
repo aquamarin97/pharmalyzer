@@ -2,8 +2,8 @@
 # app\controllers\colored_box_controller.py
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from app.services.data_store import DataStore
 from app.services.colored_box_service import ColoredBoxService, ColoredBoxConfig
+from app.services.data_management.data_store import DataStore
 
 
 class ColoredBoxController(QObject):

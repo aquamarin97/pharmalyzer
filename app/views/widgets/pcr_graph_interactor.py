@@ -4,10 +4,10 @@ from __future__ import annotations
 import logging
 from typing import Optional, Set
 
-from app.services.interaction_store import InteractionStore
 from app.services.pcr_data_service import PCRDataService
-from app.utils import well_mapping
+from app.services.data_management import well_mapping
 from app.views.plotting.pcr_graph.renderer import PCRGraphRenderer
+from app.services.data_management.interaction_store import InteractionStore
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ from app.services.pcr_data_service import PCRCoords
 from .axes import setup_axes
 
 from typing import Dict, List
-from app.utils import well_mapping
+from app.services.data_management import well_mapping
 from matplotlib.lines import Line2D
 
 def render_wells(r, data: Dict[str, PCRCoords]) -> None:

@@ -1,16 +1,14 @@
-# app\controllers\table\table_interaction_controller.py
 # app/controllers/table/table_interaction_controller.py
 from __future__ import annotations
 
 import logging
-from app.services.interaction_store import InteractionStore
 from typing import Set
 from PyQt5.QtCore import QEvent, QObject, Qt
 from PyQt5.QtGui import QKeyEvent
 from PyQt5.QtWidgets import QApplication, QAbstractItemView
 
-from app.services.interaction_store import InteractionStore
-from app.utils import well_mapping
+from app.services.data_management import well_mapping
+from app.services.data_management.interaction_store import InteractionStore
 
 logger = logging.getLogger(__name__)
 

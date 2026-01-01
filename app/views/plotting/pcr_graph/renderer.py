@@ -8,9 +8,9 @@ from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 
 from app.constants.pcr_graph_style import PCRGraphStyle
-from app.services.interaction_store import InteractionStore
 from app.services.pcr_data_service import PCRCoords
 
+from app.services.data_management.interaction_store import InteractionStore
 from . import drawing, interactions, styles
 from .axes import setup_axes
 

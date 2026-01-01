@@ -7,8 +7,8 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtGui
 
 from app.i18n import t
-from app.services.interaction_store import InteractionStore
 from app.views.plotting.regression.adapters import HoverPoints
+from app.services.data_management.interaction_store import InteractionStore
 
 
 class RegressionInteraction:

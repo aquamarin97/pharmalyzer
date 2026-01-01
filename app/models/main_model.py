@@ -10,7 +10,7 @@ from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from app.controllers.analysis.colored_box_controller import ColoredBoxController
 from app.services.analysis_service import AnalysisService
 from app.services.rdml_service import RDMLService
-from app.services.data_store import DataStore
+from app.services.data_management.data_store import DataStore
 from app.services.pcr_data_service import PCRDataService
 from app.models.workers.analysis_worker import AnalysisWorker
 

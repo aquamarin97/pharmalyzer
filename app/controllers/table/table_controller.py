@@ -1,5 +1,4 @@
 # app\controllers\table\table_controller.py
-# app/controllers/table/table_controller.py
 import pandas as pd
 
 from PyQt5.QtGui import QStandardItemModel
@@ -13,11 +12,11 @@ from app.constants.table_config import (
     TABLE_WIDGET_HEADERS,
 )
 from app.controllers.table.table_interaction_controller import TableInteractionController
-from app.services.data_store import DataStore
 from app.services.pcr_data_service import PCRDataService
 from app.views.table.editable_table_model import EditableTableModel
 from app.views.table.drop_down_delegate import DropDownDelegate
 from app.views.table.table_view_widget import TableViewWidget
+from app.services.data_management.data_store import DataStore
 
 
 class AppTableController:

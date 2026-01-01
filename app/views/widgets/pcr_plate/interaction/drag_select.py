@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Set
 
-from app.utils import well_mapping
+from app.services.data_management import well_mapping
 
 
 @dataclass
