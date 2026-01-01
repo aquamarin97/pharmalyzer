@@ -1,4 +1,3 @@
-# app\views\plotting\regression\renderer.py
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -42,7 +41,6 @@ class RegressionRenderer:
             return RegressionRenderResult(items=[], hover_points=self._hover_points, scatter_handles=[])
 
         items: list[pg.GraphicsObject] = []
-
         items.extend(build_safe_band_items(data.safe_band, self._style))
         items.append(build_regression_line_item(data.reg_line, self._style))
 
@@ -59,39 +57,60 @@ class RegressionRenderer:
 
     def update_styles(self, selected_wells: set[str] | None, hover_well: str | None) -> None:
         selected_wells = selected_wells or set()
-        hover_well = hover_well or None
 
         for handle in self._scatter_handles:
-            brushes = []
-            pens = []
-            sizes = []
-            for idx, well in enumerate(handle.wells):
-                is_selected = well in selected_wells
-                is_hovered = hover_well == well
+            # ---- Selected overlay ----
+            if selected_wells:
+                idxs: list[int] = []
+                for w in selected_wells:
+                    i = handle.well_to_index.get(w)
+                    if i is not None:
+                        idxs.append(i)
 
-                size = self._style.scatter_size
-                if is_hovered:
-                    size += 3
-                elif is_selected:
-                    size += 1.5
+                if idxs:
+                    sel_x = handle.x[idxs]
+                    sel_y = handle.y[idxs]
 
-                if is_hovered:
-                    pen = make_pen((255, 59, 48), width=max(2, self._style.scatter_pen_width + 1))
-                elif is_selected:
-                    pen = make_pen((58, 122, 254), width=max(2, self._style.scatter_pen_width + 1))
+                    base = handle.base_brush
+                    if len(base) == 4:
+                        r, g, b, a = base
+                        bright = (min(r + 60, 255), min(g + 60, 255), min(b + 60, 255), a)
+                    else:
+                        r, g, b = base
+                        bright = (min(r + 60, 255), min(g + 60, 255), min(b + 60, 255))
+
+                    handle.selected_item.setData(
+                        x=sel_x,
+                        y=sel_y,
+                        size=self._style.scatter_size + 4,
+                        brush=make_brush(bright),
+                        pen=make_pen(handle.selection_pen, width=4),
+                    )
                 else:
-                    pen = make_pen(handle.base_pen, width=self._style.scatter_pen_width)
+                    handle.selected_item.setData(x=[], y=[])
+            else:
+                handle.selected_item.setData(x=[], y=[])
 
-                brush = make_brush(handle.base_brush)
+            # ---- Hover overlay (single point) ----
+            if hover_well is not None:
+                hi = handle.well_to_index.get(hover_well)
+                if hi is not None:
+                    base = handle.base_brush
+                    if len(base) == 4:
+                        r, g, b, a = base
+                        bright = (min(r + 80, 255), min(g + 80, 255), min(b + 80, 255), a)
+                    else:
+                        r, g, b = base
+                        bright = (min(r + 80, 255), min(g + 80, 255), min(b + 80, 255))
 
-                brushes.append(brush)
-                pens.append(pen)
-                sizes.append(size)
-
-            handle.item.setData(
-                x=handle.x,
-                y=handle.y,
-                brush=brushes,
-                pen=pens,
-                size=sizes,
-            )
+                    handle.hover_item.setData(
+                        x=[float(handle.x[hi])],
+                        y=[float(handle.y[hi])],
+                        size=self._style.scatter_size + 7,
+                        brush=make_brush(bright),
+                        pen=make_pen(handle.selection_pen, width=4),
+                    )
+                else:
+                    handle.hover_item.setData(x=[], y=[])
+            else:
+                handle.hover_item.setData(x=[], y=[])

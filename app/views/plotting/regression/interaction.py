@@ -75,7 +75,21 @@ class RegressionInteraction:
                 return
 
             well = self._hover_points.wells[well_idx] if well_idx < self._hover_points.wells.size else ""
-            hover_text_item.setText(t("regression.plot.hover.well_no", well=well))
+            text_color = "#FFFFFF"  # Beyaz yazı
+            bg_color = "rgba(40, 44, 52, 200)"  # Yarı saydam koyu arka plan
+            border_color = "#FFD700"  # Altın sarısı çerçeve (Ampul rengi)
+
+            well_text = t("regression.plot.hover.well_no", well=well)
+            html_text = (
+                f'<div style="background-color: {bg_color}; '
+                f'border: 1px solid {border_color}; '
+                f'border-radius: 4px; '
+                f'padding: 3px 6px;">'
+                f'<span style="color: {text_color}; font-weight: bold; font-family: Arial;">'
+                f'{well_text}'
+                f'</span></div>'
+            )
+            hover_text_item.setHtml(html_text)
             hover_text_item.setPos(float(self._hover_points.x[well_idx]), float(self._hover_points.y[well_idx]))
             hover_text_item.show()
 
@@ -110,7 +124,21 @@ class RegressionInteraction:
                     else:
                         self._store.set_selection({well})
                     self._store.set_hover(well)
-                hover_text_item.setText(t("regression.plot.hover.well_no", well=well))
+                text_color = "#FFFFFF"  # Beyaz yazı
+                bg_color = "rgba(40, 44, 52, 200)"  # Yarı saydam koyu arka plan
+                border_color = "#FFD700"  # Altın sarısı çerçeve (Ampul rengi)
+
+                well_text = t("regression.plot.hover.well_no", well=well)
+                html_text = (
+                    f'<div style="background-color: {bg_color}; '
+                    f'border: 1px solid {border_color}; '
+                    f'border-radius: 4px; '
+                    f'padding: 3px 6px;">'
+                    f'<span style="color: {text_color}; font-weight: bold; font-family: Arial;">'
+                    f'{well_text}'
+                    f'</span></div>'
+                )
+                hover_text_item.setHtml(html_text)
                 hover_text_item.setPos(float(self._hover_points.x[well_idx]), float(self._hover_points.y[well_idx]))
                 hover_text_item.show()
                 mouse_evt.accept()

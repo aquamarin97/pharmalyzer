@@ -1,41 +1,69 @@
-# app\logging\setup.py
-# app/logging/setup.py
 from __future__ import annotations
 
 import logging
-import os
+from dataclasses import dataclass
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from typing import Optional
 
 
-def setup_logging(app_name: str = "pharmalizer") -> None:
+@dataclass(frozen=True, slots=True)
+class LoggingConfig:
+    app_name: str
+    level: int = logging.INFO
+    log_dir: Path = Path("logs")
+    to_console: bool = True
+    max_bytes: int = 2_000_000
+    backup_count: int = 5
+
+
+_CONFIGURED_FLAG = "_pharmalizer_logging_configured_v2"
+
+
+def setup_logging(cfg: LoggingConfig) -> None:
+    """
+    Idempotent logging setup. Safe to call multiple times.
+    """
     root = logging.getLogger()
 
-    # setup iki kere çağrılırsa handler çoğalmasın
-    if getattr(root, "_pharmalizer_logging_configured", False):
+    if getattr(root, _CONFIGURED_FLAG, False):
         return
-    root._pharmalizer_logging_configured = True
+    setattr(root, _CONFIGURED_FLAG, True)
 
-    level_name = os.getenv("LOG_LEVEL", "INFO").upper()
-    level = getattr(logging, level_name, logging.INFO)
-    root.setLevel(level)
+    root.setLevel(cfg.level)
 
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-    os.makedirs("logs", exist_ok=True)
+    cfg.log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = cfg.log_dir / f"{cfg.app_name}.log"
 
     file_handler = RotatingFileHandler(
-        os.path.join("logs", f"{app_name}.log"),
-        maxBytes=2_000_000,
-        backupCount=5,
+        log_file,
+        maxBytes=cfg.max_bytes,
+        backupCount=cfg.backup_count,
         encoding="utf-8",
     )
-    file_handler.setLevel(level)
+    file_handler.setLevel(cfg.level)
     file_handler.setFormatter(fmt)
     root.addHandler(file_handler)
 
-    # Dev için console; prod'da kapatılabilir
-    if os.getenv("ENVIRONMENT") != "production":
+    if cfg.to_console:
         console = logging.StreamHandler()
-        console.setLevel(level)
+        console.setLevel(cfg.level)
         console.setFormatter(fmt)
         root.addHandler(console)
+
+
+def reset_logging_for_tests() -> None:
+    """
+    Testlerde handler temizliği için. Prod kodda çağırma.
+    """
+    root = logging.getLogger()
+    for h in list(root.handlers):
+        root.removeHandler(h)
+        try:
+            h.close()
+        except Exception:
+            pass
+    if hasattr(root, _CONFIGURED_FLAG):
+        delattr(root, _CONFIGURED_FLAG)

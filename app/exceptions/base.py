@@ -1,9 +1,9 @@
-# app\exceptions\base.py
-# app/exceptions/base.py
 from __future__ import annotations
 
+import os
 import sys
 import threading
+
 from PyQt5.QtCore import QThread
 from PyQt5.QtWidgets import QApplication
 
@@ -19,16 +19,23 @@ def _can_show_ui(app: QApplication | None) -> bool:
         return False
     if app.closingDown():
         return False
-    # UI sadece main thread'de güvenli
     return QThread.currentThread() == app.thread()
 
 
+def _should_show_traceback() -> bool:
+    # prod'da UI'da traceback gösterme
+    env = (os.getenv("ENVIRONMENT") or "development").strip().lower()
+    return env != "production"
+
+
 def install_global_exception_hook() -> None:
+    show_tb = _should_show_traceback()
+
     def excepthook(exc_type, exc, tb):
         if _should_ignore(exc):
             return
         app = QApplication.instance()
-        handle_exception(exc, allow_ui=_can_show_ui(app))
+        handle_exception(exc, allow_ui=_can_show_ui(app), show_traceback=show_tb)
 
     sys.excepthook = excepthook
 
@@ -36,8 +43,7 @@ def install_global_exception_hook() -> None:
         def thread_hook(args):
             if _should_ignore(args.exc_value):
                 return
-            app = QApplication.instance()
-            # Thread exception'larında genelde UI gösterme!
-            handle_exception(args.exc_value, allow_ui=_can_show_ui(app))
+            # Thread exception'larında UI göstermeyi kapat (daha güvenli)
+            handle_exception(args.exc_value, allow_ui=False, show_traceback=show_tb)
 
         threading.excepthook = thread_hook

@@ -1,7 +1,5 @@
-# main.py
 from __future__ import annotations
 
-import os
 import sys
 import logging
 
@@ -9,8 +7,12 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QApplication
 
+from app.config.settings import AppSettings
+from app.i18n import init_i18n
+
 from app.bootstrap.splash import show_splash
 from app.bootstrap.resources import resource_path
+from app.bootstrap.warmup import run_warmup
 from app.licensing.ui import ensure_license_or_exit
 from app.constants.asset_paths import IMAGE_PATHS
 
@@ -18,110 +20,70 @@ from app.controllers.main_controller import MainController
 from app.models.main_model import MainModel
 from app.views.main_view import MainView
 
-from app.logging.setup import setup_logging
+from app.logging.setup import setup_logging, LoggingConfig
 from app.exceptions.base import install_global_exception_hook
 from app.exceptions.handler import handle_exception
 
 logger = logging.getLogger(__name__)
 
 
-def _warmup_during_splash(splash) -> None:
-    """
-    Heavy imports + first-call overhead warm-up.
-    Runs on MAIN thread while splash is visible.
-    """
-    def show(msg: str, p: int) -> None:
-        try:
-            splash.showMessage(
-                f"{msg} %{p}",
-                alignment=Qt.AlignBottom | Qt.AlignHCenter,
-            )
-            QApplication.processEvents()  # splash redraw
-        except Exception:
-            # splash yoksa bile warmup sürsün
-            pass
+def configure_app() -> AppSettings:
+    settings = AppSettings.from_env()
 
-        logger.info("[Warmup] %s", msg)
+    # i18n init (explicit, no side-effects)
+    init_i18n()
 
-    # 1) numpy + BLAS first touch
-    show("NumPy hazırlanıyor...", 10)
-    import numpy as _np
-    a = _np.random.rand(200, 200)
-    _ = a @ a
-
-    # 2) sklearn + KMeans first fit
-    show("scikit-learn hazırlanıyor...", 35)
-    from sklearn.linear_model import LinearRegression as _LR
-    from sklearn.cluster import KMeans as _KMeans
-
-    X = _np.array([[0.0], [1.0]])
-    y = _np.array([0.0, 1.0])
-    _LR().fit(X, y)
-
-    X2 = _np.random.rand(200, 1)
-    _KMeans(n_clusters=5, random_state=42).fit(X2)
-
-    # 3) scipy minimize first call (L-BFGS-B)
-    show("SciPy hazırlanıyor...", 55)
-    from scipy.optimize import minimize as _minimize
-
-    def _obj(x):
-        # x is ndarray
-        return float((x[0] - 0.1234) ** 2)
-
-    _minimize(
-        _obj,
-        x0=_np.array([0.0]),
-        bounds=[(-4, 4)],
-        method="L-BFGS-B",
-        options={"maxiter": 20},
+    # Logging (settings'ten)
+    level = getattr(logging, settings.log_level, logging.INFO)
+    setup_logging(
+        LoggingConfig(
+            app_name=settings.app_name,
+            level=level,
+            log_dir=settings.log_dir,
+            to_console=settings.log_to_console,
+        )
     )
 
-    # 4) matplotlib minimal init
-    show("Matplotlib hazırlanıyor...", 75)
-    import matplotlib.pyplot as _plt
-    fig = _plt.figure()
-    _plt.close(fig)
+    # Global exception hook
+    install_global_exception_hook()
 
-    # 5) pyqtgraph (Qt ile ilişkili -> main thread)
-    show("PyQtGraph hazırlanıyor...", 90)
-    import pyqtgraph as _pg
-    _pg.setConfigOptions(antialias=True)
-
-    show("Hazır!", 100)
+    return settings
 
 
 def main() -> int:
-    setup_logging("pharmalizer")
-    install_global_exception_hook()
+    settings = configure_app()
 
     app = QApplication(sys.argv)
 
-    if os.getenv("ENVIRONMENT") == "production":
+    if settings.license_required:
         ensure_license_or_exit(app)
 
     app.setWindowIcon(QIcon(resource_path(IMAGE_PATHS.APP_LOGO_PNG)))
 
-    # ---- Splash ----
     splash = show_splash()
 
-    # Model uzun ömürlü
+    def splash_progress(msg: str, p: int) -> None:
+        try:
+            splash.showMessage(
+                msg,  # yüzde zaten msg içinde
+                alignment=Qt.AlignBottom | Qt.AlignHCenter,
+            )
+            QApplication.processEvents()
+        except Exception:
+            pass
+
     model = MainModel()
     app.aboutToQuit.connect(model.shutdown)
 
-    # ---- Warmup: splash açıkken, UI açılmadan önce ----
-    try:
-        _warmup_during_splash(splash)
-    except Exception as exc:
-        # Warmup patlasa bile uygulama açılmalı
-        logger.exception("Warmup failed: %s", exc)
+    if settings.warmup_enabled:
+        try:
+            run_warmup(splash_progress)
+        except Exception as exc:
+            logger.exception("Warmup failed (continuing): %s", exc)
 
-    # ---- UI bootstrap ----
     view = MainView()
     controller = MainController(view, model)
-
-    # GC guard (bazı ortamlarda faydalı)
-    view.controller = controller
+    view.controller = controller  # GC guard
 
     splash.finish(view)
     view.show()

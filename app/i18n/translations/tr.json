@@ -32,13 +32,17 @@
         }
     },
     "loading": {
-        "progress": "Yükleniyor... %",
-        "messages": [
-            "Sistem başlatılıyor...",
-            "Bileşenler yükleniyor...",
-            "Lisans kontrol ediliyor...",
-            "Hazır!"
-        ]
+      "progress": "{p}%",
+      "messages": [
+        "Sistem başlatılıyor...",
+        "Arayüz hazırlanıyor...",
+        "Bileşenler yükleniyor...",
+        "Analiz modülleri hazırlanıyor...",
+        "Grafik motoru hazırlanıyor...",
+        "Son kontroller yapılıyor...",
+        "Neredeyse hazır...",
+        "Hazır!"
+      ]
     },
     "filters": {
         "license_files": "Lisans Dosyaları (*.key)"

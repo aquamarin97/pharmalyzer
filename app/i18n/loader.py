@@ -1,44 +1,48 @@
-# app\i18n\loader.py
 from __future__ import annotations
 
 import json
-import os
+import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from app.bootstrap.resources import resource_path
+
+logger = logging.getLogger(__name__)
 
 
 class Translator:
     _translations: Dict[str, dict] = {}
     _current_lang: str = "tr"
     _fallback_lang: str = "tr"
+    _loaded: bool = False
 
     @classmethod
     def load_all(cls) -> None:
-        """Uygulama başlangıcında bir kere çalıştır."""
-        base_path = os.path.join(os.path.dirname(__file__), "translations")
-        if not os.path.isdir(base_path):
-            cls._translations.setdefault(cls._fallback_lang, {})
+        if cls._loaded:
             return
 
-        for filename in os.listdir(base_path):
-            if not filename.endswith(".json"):
-                continue
+        base = Path(resource_path(str(Path(__file__).resolve().parent / "translations")))
+        if not base.is_dir():
+            cls._translations.setdefault(cls._fallback_lang, {})
+            cls._loaded = True
+            return
 
-            lang = filename[:-5]  # tr.json -> tr
-            path = os.path.join(base_path, filename)
-
+        for path in base.glob("*.json"):
+            lang = path.stem
             try:
-                with open(path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
+                data = json.loads(path.read_text(encoding="utf-8"))
                 if isinstance(data, dict):
                     cls._translations[lang] = data
-            except (OSError, json.JSONDecodeError):
-                # Bozuk/erişilemeyen çeviri dosyası uygulamayı düşürmesin.
-                continue
+            except Exception as e:
+                logger.warning("Translation load failed: %s (%s)", path.name, e)
 
         cls._translations.setdefault(cls._fallback_lang, {})
+        cls._loaded = True
 
     @classmethod
     def set_language(cls, lang: str) -> None:
+        if not cls._loaded:
+            cls.load_all()
         cls._current_lang = lang if lang in cls._translations else cls._fallback_lang
 
     @classmethod
@@ -52,10 +56,6 @@ class Translator:
 
     @classmethod
     def _resolve(cls, data: dict, key: str) -> Optional[Any]:
-        """
-        Dotted key çözümleyici:
-        "errors.license.missing" -> data["errors"]["license"]["missing"]
-        """
         cur: Any = data
         for part in key.split("."):
             if isinstance(cur, dict) and part in cur:
@@ -66,11 +66,9 @@ class Translator:
 
     @classmethod
     def t(cls, key: str, **params: Any) -> str:
-        """
-        Tek string çeviri.
-        - namespaced/dotted key destekler
-        - parametrelerle formatlar: t("x.y", name="Ali")
-        """
+        if not cls._loaded:
+            cls.load_all()
+
         current = cls._get_bundle(cls._current_lang)
         fallback = cls._get_bundle(cls._fallback_lang)
 
@@ -91,6 +89,9 @@ class Translator:
 
     @classmethod
     def t_list(cls, key: str) -> List[str]:
+        if not cls._loaded:
+            cls.load_all()
+
         current = cls._get_bundle(cls._current_lang)
         fallback = cls._get_bundle(cls._fallback_lang)
 
@@ -101,5 +102,4 @@ class Translator:
         if not isinstance(value, list):
             return []
 
-        # sadece string olanları al
         return [x for x in value if isinstance(x, str)]

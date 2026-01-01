@@ -1,5 +1,3 @@
-# app\bootstrap\splash.py
-# app/bootstrap/splash.py
 from __future__ import annotations
 
 from PyQt5.QtCore import Qt
@@ -19,12 +17,11 @@ def show_splash() -> QSplashScreen:
 
     app_name = t(TextKey.APP_NAME)
     brand_name = t(TextKey.BRAND_NAME)
-    logo_path = IMAGE_PATHS.APP_LOGO_PNG
 
     painter = QPainter(canvas)
     painter.setRenderHint(QPainter.Antialiasing)
 
-    logo = QPixmap(resource_path(logo_path)).scaled(
+    logo = QPixmap(resource_path(IMAGE_PATHS.APP_LOGO_PNG)).scaled(
         250, 250, Qt.KeepAspectRatio, Qt.SmoothTransformation
     )
 
@@ -49,10 +46,9 @@ def show_splash() -> QSplashScreen:
     splash.setFont(FONT_STYLES.SPLASH_MESSAGE)
     splash.show()
 
-    # İlk mesaj
     messages = t_list(TextKey.LOADING_MESSAGES) or [t("loading.progress")]
     splash.showMessage(
-        f"{messages[0]} %1",
+        f"{messages[0]} 1%",
         alignment=Qt.AlignBottom | Qt.AlignHCenter,
         color=COLOR_STYLES.PRIMARY_TEXT,
     )

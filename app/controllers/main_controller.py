@@ -1,5 +1,9 @@
-# app\controllers\main_controller.py
+# app/controllers/main_controller.py
 from __future__ import annotations
+
+import logging
+from typing import Optional
+
 from app.controllers.app.export_controller import ExportController
 from app.controllers.well.well_edit_controller import WellEditController
 from app.controllers.table.table_controller import AppTableController
@@ -16,43 +20,79 @@ from app.views.widgets.regression_graph_view import RegressionGraphView
 from app.views.widgets.pcr_graph_view import PCRGraphView
 from app.controllers.graph.graph_controller import GraphController
 
+logger = logging.getLogger(__name__)
+
+
 class MainController:
+    """
+    Release-grade goals:
+    - Avoid re-creating QObject widgets/controllers repeatedly (prevents signal duplication, leaks, UI jank)
+    - Wire signals exactly once
+    - Provide safe close/shutdown behavior (no UI updates after closing)
+    - Keep reset cheap: clear state + reset views, do not rebuild tree unless mandatory
+    """
+
     def __init__(self, view: MainView, model: MainModel):
         self.view = view
         self.model = model
 
         self.export_controller = ExportController()
-        self.drag_drop_controller: DragDropController | None = None
-        self.table_controller: AppTableController | None = None
 
-        self.graph_drawer: PCRGraphView | None = None
-        self.regression_graph_view: RegressionGraphView | None = None
-        self.graph_controller: GraphController | None = None
+        # Controllers / services
+        self.drag_drop_controller: Optional[DragDropController] = None
+        self.table_controller: Optional[AppTableController] = None
+        self.graph_controller: Optional[GraphController] = None
+        self.interaction_controller: Optional[InteractionController] = None
 
-        self.plate_widget: PCRPlateWidget | None = None
         self.interaction_store = InteractionStore()
-        self.interaction_controller: InteractionController | None = None
         self.pcr_data_service = PCRDataService()
 
-        self._wire_model_signals()
-        self._wire_view_signals()
+        # Views (widgets)
+        self.graph_drawer: Optional[PCRGraphView] = None
+        self.regression_graph_view: Optional[RegressionGraphView] = None
+        self.plate_widget: Optional[PCRPlateWidget] = None
 
-        self._initialize_components()
-        self._t_analyze_clicked = None
-        self._t_worker_finished = None
+        # Well managers
+        self.referans_kuyu_manager: Optional[WellEditController] = None
+        self.homozigot_manager: Optional[WellEditController] = None
+        self.heterozigot_manager: Optional[WellEditController] = None
+        self.ntc_manager: Optional[WellEditController] = None
 
-    # -------------------- Wiring --------------------
-    def _wire_view_signals(self) -> None:
+        # Lifecycle / safety
+        self._closing: bool = False
+        self._view_wired: bool = False
+        self._model_wired: bool = False
+        self._components_built: bool = False
+
+        # Wire once
+        self._wire_model_signals_once()
+        self._wire_view_signals_once()
+
+        # Build once (widgets/controllers), then reset state
+        self._build_components_once()
+        self.reset_state()
+
+    # -------------------- Wiring (ONCE) --------------------
+    def _wire_view_signals_once(self) -> None:
+        if self._view_wired:
+            return
+        self._view_wired = True
+
         v = self.view
         v.analyze_requested.connect(self._on_analyze_requested)
         v.import_requested.connect(self._on_import_requested)
         v.export_requested.connect(self._on_export_requested)
-        v.clear_requested.connect(self._initialize_components)
+        v.clear_requested.connect(self.reset_state)  # IMPORTANT: reset without re-creating objects
         v.stats_toggled.connect(self._on_stats_toggled)
         v.carrier_range_changed.connect(lambda val: self._validate_and_set_range(val, "carrier"))
         v.uncertain_range_changed.connect(lambda val: self._validate_and_set_range(val, "uncertain"))
         v.close_requested.connect(self._on_close_requested)
-    def _wire_model_signals(self) -> None:
+
+    def _wire_model_signals_once(self) -> None:
+        if self._model_wired:
+            return
+        self._model_wired = True
+
         m = self.model
 
         # colored box updates
@@ -65,32 +105,93 @@ class MainController:
         m.analysis_error.connect(self.view.show_warning)
         m.analysis_summary_ready.connect(self._on_analysis_summary_ready)
 
-    # -------------------- Init / Reset --------------------
-    def _initialize_components(self) -> None:
-        self.interaction_store.clear_selection()
-        self.interaction_store.set_hover(None)
-        # grafikler (view container üzerinden)
-        self._initialize_graphics()
+    def _disconnect_model_signals_safely(self) -> None:
+        """
+        Qt disconnect can throw if not connected; wrap safely.
+        """
+        if not self._model_wired:
+            return
+        m = self.model
+        v = self.view
+        try:
+            m.colored_box_controller.calculationCompleted.disconnect(v.update_colored_box_widgets)
+        except Exception:
+            pass
+        try:
+            m.analysis_busy.disconnect(v.set_busy)
+        except Exception:
+            pass
+        try:
+            m.analysis_progress.disconnect(self._on_analysis_progress)
+        except Exception:
+            pass
+        try:
+            m.analysis_finished.disconnect(self._on_async_analysis_finished)
+        except Exception:
+            pass
+        try:
+            m.analysis_error.disconnect(v.show_warning)
+        except Exception:
+            pass
+        try:
+            m.analysis_summary_ready.disconnect(self._on_analysis_summary_ready)
+        except Exception:
+            pass
 
-        self.model.state.file_name = ""
-        self.model.reset_data()
+        self._model_wired = False
 
-        self._setup_drag_and_drop()
-        self._setup_table_controller()
-        self._setup_well_managers()
-        self._setup_interaction_controller()
-        
-        self.view.reset_box_colors()
-        self.view.reset_summary_labels()
-        self.view.set_analyze_enabled(False)
-        self.view.set_dragdrop_label("RDML dosyanızı sürükleyip bırakınız")
-        self._reset_regression_graph()
+    # -------------------- Build once (widgets/controllers) --------------------
+    def _build_components_once(self) -> None:
+        if self._components_built:
+            return
+        self._components_built = True
 
-    def _setup_drag_and_drop(self) -> None:
+        self._build_graphics_once()
+        self._build_drag_and_drop_once()
+        self._build_table_controller_once()
+        self._build_well_managers_once()
+        self._build_interaction_controller_once()
+
+    def _build_graphics_once(self) -> None:
+        """
+        Create heavy widgets ONCE. Reset later by clearing data.
+        """
+        # PCR graph
+        layout_graph = self.view.ensure_graph_drawer_layout()
+        self.graph_drawer = PCRGraphView(parent=self.view.ui.PCR_graph_container)
+        layout_graph.addWidget(self.graph_drawer)
+
+        # Graph controller once; can swap graph view if needed, but we keep a single graph view.
+        self.graph_controller = GraphController(ui=self.view.ui, graph_view=self.graph_drawer)
+
+        # Regression graph
+        layout_reg = self.view.ensure_regression_graph_container()
+        self.regression_graph_view = RegressionGraphView(parent=self.view.ui.regration_container)
+        layout_reg.addWidget(self.regression_graph_view)
+
+        # PCR plate: create once; avoid replaceWidget each reset.
+        # If your UI already has a placeholder widget, we replace it ONCE here.
+        original_plate = getattr(self.view.ui, "PCR_plate_container", None)
+        if original_plate is not None and not isinstance(original_plate, PCRPlateWidget):
+            new_plate = PCRPlateWidget(original_plate)
+            self.view.ui.PCR_plate_container = new_plate
+            try:
+                self.view.ui.verticalLayout_2.replaceWidget(original_plate, new_plate)
+            except Exception:
+                # In case layout name differs or replaceWidget is unavailable
+                pass
+            try:
+                original_plate.deleteLater()
+            except Exception:
+                pass
+
+        self.plate_widget = self.view.ui.PCR_plate_container
+
+    def _build_drag_and_drop_once(self) -> None:
         self.drag_drop_controller = DragDropController(self.view.ui.label_drag_drop_area)
         self.drag_drop_controller.drop_completed.connect(self.handle_drop_result)
 
-    def _setup_table_controller(self) -> None:
+    def _build_table_controller_once(self) -> None:
         self.table_controller = AppTableController(
             view=self.view,
             model=self.model,
@@ -98,7 +199,7 @@ class MainController:
             interaction_store=self.interaction_store,
         )
 
-    def _setup_well_managers(self) -> None:
+    def _build_well_managers_once(self) -> None:
         ui = self.view.ui
         self.referans_kuyu_manager = WellEditController(
             line_edit=ui.lineEdit_standart_kuyu,
@@ -121,14 +222,15 @@ class MainController:
             on_change=self.model.colored_box_controller.set_NTC_line_edit,
         )
 
-    def _setup_interaction_controller(self) -> None:
+    def _build_interaction_controller_once(self) -> None:
         if (
             self.table_controller is None
-            or self.table_controller.table_interaction is None
+            or getattr(self.table_controller, "table_interaction", None) is None
             or self.graph_drawer is None
             or self.regression_graph_view is None
             or self.plate_widget is None
         ):
+            logger.warning("InteractionController prerequisites are missing; skipping build.")
             return
 
         self.interaction_controller = InteractionController(
@@ -140,53 +242,109 @@ class MainController:
             pcr_data_service=self.pcr_data_service,
         )
 
+    # -------------------- Reset (cheap, no rebuild) --------------------
+    def reset_state(self) -> None:
+        """
+        Release-grade: do NOT recreate widgets/controllers. Just clear state/data and reset views.
+        """
+        if self._closing:
+            return
 
-    # -------------------- Graphics --------------------
-    def _initialize_graphics(self) -> None:
-        # PCR graph
+        # interaction store
+        self.interaction_store.clear_selection()
+        self.interaction_store.set_hover(None)
+
+        # model data
+        self.model.state.file_name = ""
+        self.model.reset_data()
+
+        # reset view widgets / labels
+        self.view.reset_box_colors()
+        self.view.reset_summary_labels()
+        self.view.set_analyze_enabled(False)
+        self.view.set_dragdrop_label("RDML dosyanızı sürükleyip bırakınız")
+        self._reset_graphs()
+
+        # reset controllers/views if they expose reset API
+        self._safe_reset(self.drag_drop_controller)
+        self._safe_reset(self.table_controller)
+        self._safe_reset(self.referans_kuyu_manager)
+        self._safe_reset(self.homozigot_manager)
+        self._safe_reset(self.heterozigot_manager)
+        self._safe_reset(self.ntc_manager)
+        self._safe_reset(self.interaction_controller)
+
+        # graph controller checkboxes reset
+        if self.graph_controller is not None:
+            try:
+                self.graph_controller.reset_checkboxes()
+            except Exception:
+                logger.exception("GraphController.reset_checkboxes failed")
+
+    def _safe_reset(self, obj) -> None:
+        """
+        If obj has reset()/clear() call it. Non-fatal if not present.
+        """
+        if obj is None:
+            return
+        for method_name in ("reset", "clear", "reset_state"):
+            if hasattr(obj, method_name):
+                try:
+                    getattr(obj, method_name)()
+                except Exception:
+                    logger.exception("%s.%s() failed", type(obj).__name__, method_name)
+                break
+
+    def _reset_graphs(self) -> None:
+        # Reset regression graph
+        if self.regression_graph_view is not None:
+            try:
+                self.regression_graph_view.reset()
+            except Exception:
+                logger.exception("RegressionGraphView.reset failed")
+
+        # Reset PCR graph view if it has a reset/clear method
         if self.graph_drawer is not None:
-            self.graph_drawer.deleteLater()
-            self.graph_drawer = None
+            for method_name in ("reset", "clear", "clear_plot"):
+                if hasattr(self.graph_drawer, method_name):
+                    try:
+                        getattr(self.graph_drawer, method_name)()
+                    except Exception:
+                        logger.exception("PCRGraphView.%s failed", method_name)
+                    break
 
-        layout = self.view.ensure_graph_drawer_layout()
-        self.graph_drawer = PCRGraphView(parent=self.view.ui.PCR_graph_container)
-        layout.addWidget(self.graph_drawer)
-        if self.graph_controller is None:
-            self.graph_controller = GraphController(ui=self.view.ui, graph_view=self.graph_drawer)
-        else:
-            self.graph_controller.set_graph_view(self.graph_drawer)
-            self.graph_controller.reset_checkboxes()
-
-        layout = self.view.ensure_regression_graph_container()
-        self.regression_graph_view = RegressionGraphView(parent=self.view.ui.regration_container)
-        layout.addWidget(self.regression_graph_view)
-
-        # PCR plate
+        # Plate widget reset if available
         if self.plate_widget is not None:
-            self.plate_widget.deleteLater()
-            self.plate_widget = None
+            for method_name in ("reset", "clear", "reset_state"):
+                if hasattr(self.plate_widget, method_name):
+                    try:
+                        getattr(self.plate_widget, method_name)()
+                    except Exception:
+                        logger.exception("PCRPlateWidget.%s failed", method_name)
+                    break
 
-        original_plate = self.view.ui.PCR_plate_container
-        self.view.ui.PCR_plate_container = PCRPlateWidget(original_plate)
-        self.view.ui.verticalLayout_2.replaceWidget(original_plate, self.view.ui.PCR_plate_container)
-        original_plate.deleteLater()
-        self.plate_widget = self.view.ui.PCR_plate_container
-
+    # -------------------- Close / Shutdown --------------------
     def _on_close_requested(self) -> None:
-        # Release-grade: thread’i güvenli kapat
+        """
+        Release-grade: prevent any post-close UI updates and shut down model threads safely.
+        """
+        if self._closing:
+            return
+        self._closing = True
+
+        # Best effort disconnect to prevent callbacks after UI starts closing
+        self._disconnect_model_signals_safely()
+
         try:
             self.model.shutdown()
         except Exception:
-            # UI kapanışında exception fırlatmak istemeyiz
-            pass
-
-    def _reset_regression_graph(self) -> None:
-        if self.regression_graph_view is not None:
-            self.regression_graph_view.reset()
-
+            logger.exception("Model shutdown failed")
 
     # -------------------- Handlers --------------------
     def handle_drop_result(self, success: bool, rdml_path: str, file_name: str, message: str) -> None:
+        if self._closing:
+            return
+
         self.view.set_dragdrop_label(message)
 
         if success:
@@ -198,6 +356,9 @@ class MainController:
             self.view.set_analyze_enabled(False)
 
     def _on_import_requested(self) -> None:
+        if self._closing:
+            return
+
         file_path, file_name = self.view.select_rdml_file_dialog()
         if not file_path or self.drag_drop_controller is None:
             return
@@ -207,8 +368,11 @@ class MainController:
         self.drag_drop_controller.manual_drop(file_path, file_name)
 
     def _on_export_requested(self) -> None:
+        if self._closing:
+            return
         if self.table_controller is None:
             return
+
         self.export_controller.export_table_view(
             self.table_controller.table_widget,
             file_name=self.model.state.file_name,
@@ -216,18 +380,30 @@ class MainController:
         )
 
     def _on_analyze_requested(self) -> None:
+        if self._closing:
+            return
         self.model.run_analysis()
 
     def _on_stats_toggled(self, checked: bool) -> None:
+        if self._closing:
+            return
         self.model.colored_box_controller.set_check_box_status(bool(checked))
         self.model.set_checkbox_status(bool(checked))
 
     def _validate_and_set_range(self, val: float, range_type: str) -> None:
-        try:
-            if self.table_controller is None:
-                return
+        """
+        Performance: avoid redundant sets (esp. slider/spinbox rapidly firing).
+        """
+        if self._closing:
+            return
+        if self.table_controller is None:
+            return
 
+        try:
             if range_type == "carrier":
+                current = self.model.get_carrier_range()
+                if abs(val - float(current)) < 1e-12:
+                    return
                 if val < self.model.get_uncertain_range():
                     self.model.set_carrier_range(val)
                     self.table_controller.set_carrier_range(val)
@@ -235,6 +411,9 @@ class MainController:
                     raise ValueError("Taşıyıcı aralığı belirsiz aralığından düşük olmalıdır.")
 
             elif range_type == "uncertain":
+                current = self.model.get_uncertain_range()
+                if abs(val - float(current)) < 1e-12:
+                    return
                 if val > self.model.get_carrier_range():
                     self.model.set_uncertain_range(val)
                     self.table_controller.set_uncertain_range(val)
@@ -243,27 +422,59 @@ class MainController:
 
         except ValueError as e:
             self.view.show_warning(str(e))
+        except Exception:
+            # Release-grade: never crash UI from range change.
+            logger.exception("Range validation/set failed")
+            self.view.show_warning("Aralık ayarlanırken beklenmeyen bir hata oluştu.")
 
     def _on_analysis_progress(self, percent: int, message: str) -> None:
-        # İstersen burada status bar / label güncelleyebilirsin.
-        # Örn: self.view.ui.statusbar.showMessage(f"{message} ({percent}%)")
+        if self._closing:
+            return
+        # Optional: update statusbar/label if needed
+        # self.view.ui.statusbar.showMessage(f"{message} ({percent}%)")
         pass
 
     def _on_async_analysis_finished(self, success: bool) -> None:
+        """
+        Keep this callback fast: update minimal required UI.
+        """
+        if self._closing:
+            return
 
         if not success:
             self.view.show_warning("Analiz başarısız oldu.")
             return
+
         # Color calc
-        self.model.colored_box_controller.define_box_color()
+        try:
+            self.model.colored_box_controller.define_box_color()
+        except Exception:
+            logger.exception("define_box_color failed")
 
         # Table + graph
         if self.table_controller is not None:
-            self.table_controller.load_csv_to_table()
+            try:
+                self.table_controller.load_csv_to_table()
+            except Exception:
+                logger.exception("load_csv_to_table failed")
 
-        df = DataStore.get_df_copy()
-        if self.regression_graph_view is not None:
-            self.regression_graph_view.update(df)
+        # Avoid heavy copying if possible; but keep compatibility with current DataStore API.
+        try:
+            df = DataStore.get_df_copy()
+        except Exception:
+            logger.exception("DataStore.get_df_copy failed")
+            df = None
+
+        if self.regression_graph_view is not None and df is not None:
+            try:
+                self.regression_graph_view.update(df)
+            except Exception:
+                logger.exception("RegressionGraphView.update failed")
 
     def _on_analysis_summary_ready(self, summary) -> None:
-        self.view.update_summary_labels(summary)
+        if self._closing:
+            return
+        try:
+            self.view.update_summary_labels(summary)
+        except Exception:
+            logger.exception("update_summary_labels failed")

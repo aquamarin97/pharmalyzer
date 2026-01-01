@@ -1,4 +1,3 @@
-# app\views\plotting\regression\adapters.py
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,7 +6,7 @@ import numpy as np
 import pyqtgraph as pg
 
 from app.i18n import t
-from app.services.regression_plot_service import RegressionPlotData, RegressionLine, SafeBand, ScatterSeries
+from app.services.regression_plot_service import RegressionLine, SafeBand, ScatterSeries
 from app.views.plotting.regression.styles import (
     RegressionPlotStyle,
     get_series_style,
@@ -18,12 +17,19 @@ from app.views.plotting.regression.styles import (
 
 @dataclass
 class ScatterHandle:
-    item: pg.ScatterPlotItem
+    # Overlay mimarisi: base sabit, selected/hover ayrı item
+    base_item: pg.ScatterPlotItem
+    selected_item: pg.ScatterPlotItem
+    hover_item: pg.ScatterPlotItem
+
     x: np.ndarray
     y: np.ndarray
     wells: np.ndarray
+    well_to_index: dict[str, int]
+
     base_brush: tuple[int, ...]
     base_pen: tuple[int, ...]
+    selection_pen: tuple[int, ...]
 
 
 @dataclass
@@ -106,24 +112,53 @@ def build_series_items(series: list[ScatterSeries], style: RegressionPlotStyle) 
         if series_style is None:
             brush = (200, 200, 200)
             pen = (255, 255, 255)
+            sel_pen = (255, 255, 0)
         else:
             brush = series_style.brush
             pen = series_style.pen
+            sel_pen = series_style.selection_pen
 
-        sc = pg.ScatterPlotItem(
+        label_name = _translate_label(s.label)
+
+        # 1) Base scatter: tüm noktalar (legend’de sadece bu görünsün)
+        base_sc = pg.ScatterPlotItem(
             x=s.x,
             y=s.y,
             size=style.scatter_size,
             brush=make_brush(brush),
             pen=make_pen(pen, width=style.scatter_pen_width),
-            name=_translate_label(s.label),
+            name=label_name,
         )
-        sc.setZValue(3)
-        scatter_items.append(sc)
+        base_sc.setZValue(3)
+        scatter_items.append(base_sc)
+
+        # 2) Selected overlay: name YOK (legend/tabloya düşmesin)
+        selected_sc = pg.ScatterPlotItem(
+            x=[],
+            y=[],
+            size=style.scatter_size + 4,
+            brush=make_brush(brush),
+            pen=make_pen(sel_pen, width=4),
+        )
+        selected_sc.setZValue(50)
+        scatter_items.append(selected_sc)
+
+        # 3) Hover overlay: name YOK (legend/tabloya düşmesin)
+        hover_sc = pg.ScatterPlotItem(
+            x=[],
+            y=[],
+            size=style.scatter_size + 7,
+            brush=make_brush(brush),
+            pen=make_pen(sel_pen, width=4),
+        )
+        hover_sc.setZValue(100)
+        scatter_items.append(hover_sc)
 
         hx = np.asarray(s.x, dtype=float)
         hy = np.asarray(s.y, dtype=float)
         hw = np.asarray(s.wells, dtype=str)
+
+        well_to_index = {str(w): i for i, w in enumerate(hw)}
 
         hover_x.append(hx)
         hover_y.append(hy)
@@ -131,12 +166,16 @@ def build_series_items(series: list[ScatterSeries], style: RegressionPlotStyle) 
 
         scatter_handles.append(
             ScatterHandle(
-                item=sc,
+                base_item=base_sc,
+                selected_item=selected_sc,
+                hover_item=hover_sc,
                 x=hx,
                 y=hy,
                 wells=hw,
+                well_to_index=well_to_index,
                 base_brush=brush,
                 base_pen=pen,
+                selection_pen=sel_pen,
             )
         )
 

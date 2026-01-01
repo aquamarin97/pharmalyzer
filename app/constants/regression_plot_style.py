@@ -12,6 +12,7 @@ RGBA = Tuple[int, int, int, int]
 class SeriesStyle:
     brush: RGB
     pen: RGB
+    selection_pen: RGB
 def hex_to_rgb(h: str) -> RGB:
     h = h.lstrip("#")
     return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
@@ -37,13 +38,25 @@ class RegressionPlotStyle:
     series: Dict[str, SeriesStyle] = None  # set in __post_init__ gibi de yapılabilir
 
     def __post_init__(self):
-        if self.series is None:
-            object.__setattr__(
-                self,
-                "series",
-                {
-                    "Sağlıklı": SeriesStyle(brush=(0, 191, 255), pen=(255, 255, 255)),
-                    "Taşıyıcı": SeriesStyle(brush=(255, 165, 0), pen=(255, 215, 0)),
-                    "Belirsiz": SeriesStyle(brush=(255, 0, 255), pen=(211, 211, 211)),
-                },
-            )
+            if self.series is None:
+                object.__setattr__(
+                    self,
+                    "series",
+                    {
+                        "Sağlıklı": SeriesStyle(
+                            brush=(0, 191, 255),    # Derin Mavi dolgu
+                            pen=(255, 255, 255),    # Normalde beyaz kenarlık
+                            selection_pen=(173, 216, 230) # SEÇİLİNCE: Parlak Buz Mavisi (Ampul etkisi)
+                        ),
+                        "Taşıyıcı": SeriesStyle(
+                            brush=(255, 165, 0),    # Turuncu dolgu
+                            pen=(255, 215, 0),      # Normalde altın kenarlık
+                            selection_pen=(255, 255, 0)   # SEÇİLİNCE: Saf Parlak Sarı (Yanan ampul)
+                        ),
+                        "Belirsiz": SeriesStyle(
+                            brush=(255, 0, 255), 
+                            pen=(211, 211, 211),
+                            selection_pen=(255, 255, 0)   # Mor üzerinde Sarı vurgu
+                        ),
+                    },
+                )
