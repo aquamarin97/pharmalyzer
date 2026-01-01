@@ -32,6 +32,6 @@ class ColoredBoxController(QObject):
         self.cfg.carrier_threshold = float(v)
 
     def define_box_color(self):
-        df = DataStore.get_df_copy()
+        df = DataStore.get_df_view()
         self.last_result = self.service.compute(df, self.cfg)
         self.calculationCompleted.emit(self.last_result)

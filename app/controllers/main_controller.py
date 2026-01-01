@@ -458,11 +458,11 @@ class MainController:
             except Exception:
                 logger.exception("load_csv_to_table failed")
 
-        # Avoid heavy copying if possible; but keep compatibility with current DataStore API.
+        # Avoid heavy copying by using a view of the DataStore DF.
         try:
-            df = DataStore.get_df_copy()
+            df = DataStore.get_df_view()
         except Exception:
-            logger.exception("DataStore.get_df_copy failed")
+            logger.exception("DataStore.get_df_view failed")
             df = None
 
         if self.regression_graph_view is not None and df is not None:

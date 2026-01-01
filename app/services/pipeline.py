@@ -34,7 +34,7 @@ class Pipeline:
     @staticmethod
     def apply(step: Step, copy_input: bool = False) -> pd.DataFrame:
         """DataStore'daki mevcut veriyi alır ve adımı uygular."""
-        df = DataStore.get_df_copy() if copy_input else DataStore.get_df()
+        df = DataStore.get_df_shallow() if copy_input else DataStore.get_df_view()
         
         # Fonksiyonu çalıştır ve sonucu al
         result_df = step.fn(df)
