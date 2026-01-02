@@ -121,25 +121,37 @@ def on_rect_press(r, event) -> None:
     r._rect_selecting = True
     r._selecting = False
     r._selection_buffer.clear()
+    r._rect_press_px = (event.x, event.y) if event.x is not None and event.y is not None else None
     set_rect_preview(r, set())
-
 
 def on_rect_release(r, event) -> None:
     if event.button != 1:
         return
     r._rect_selecting = False
     r._selecting = False
+    r._rect_press_px = None
     set_rect_preview(r, set())
-
-
 def on_rect_motion(r, event) -> None:
     if not r._rect_selecting:
         return
     if r._rect_selector is None:
         return
+    if r._rect_press_px is None or event.x is None or event.y is None:
+        set_rect_preview(r, set())
+        return
+
+    drag_px = max(abs(event.x - r._rect_press_px[0]), abs(event.y - r._rect_press_px[1]))
+    if drag_px < r._rect_drag_threshold_px:
+        set_rect_preview(r, set())
+        return
 
     x0, x1, y0, y1 = r._rect_selector.extents
     if any(v is None for v in (x0, x1, y0, y1)):
+        set_rect_preview(r, set())
+        return
+
+    tol_x, tol_y = hit_test.pixel_tolerance(r, px=4)
+    if abs(x1 - x0) < tol_x and abs(y1 - y0) < tol_y:
         set_rect_preview(r, set())
         return
 

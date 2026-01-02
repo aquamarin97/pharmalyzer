@@ -5,13 +5,12 @@ from app.constants.pcr_graph_style import PCRGraphStyle
 from app.services.interaction_store import InteractionStore
 from app.services.pcr_data_service import PCRDataService
 from app.views.widgets.pcr_graph_interactor import PCRGraphInteractor
-from app.views.plotting.pcr_graph.renderer import PCRGraphRenderer
+from app.views.plotting.pcr_graph_pg.renderer_pg import PCRGraphRendererPG
 
-
-class PCRGraphView(PCRGraphRenderer):
+class PCRGraphView(PCRGraphRendererPG):
     """
     Renderer + interactor kombinasyonu.
-    FigureCanvas olarak kullanılmaya devam eder, InteractionStore kablolaması
+    PyQtGraph PlotWidget üzerine kurulur, InteractionStore kablolaması
     PCRGraphInteractor üzerinden yapılır.
     """
 

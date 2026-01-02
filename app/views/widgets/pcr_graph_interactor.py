@@ -7,8 +7,7 @@ from typing import Optional, Set
 from app.services.interaction_store import InteractionStore
 from app.services.pcr_data_service import PCRDataService
 from app.utils import well_mapping
-from app.views.plotting.pcr_graph.renderer import PCRGraphRenderer
-
+from app.views.plotting.pcr_graph_pg.renderer_pg import PCRGraphRendererPG
 logger = logging.getLogger(__name__)
 
 
@@ -18,7 +17,7 @@ class PCRGraphInteractor:
     Veri erişimi bu sınıfta tutulur.
     """
 
-    def __init__(self, renderer: PCRGraphRenderer, data_service: PCRDataService | None = None):
+    def __init__(self, renderer: PCRGraphRendererPG, data_service: PCRDataService | None = None):
         self.renderer = renderer
         self.data_service = data_service
         self.store: InteractionStore | None = None

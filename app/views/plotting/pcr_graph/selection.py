@@ -23,7 +23,6 @@ def add_to_selection(r, well: str) -> None:
     updated.add(well)
     r._store.set_selection(updated)
 
-
 def handle_rectangle_select(r, eclick, erelease) -> Set[str]:
     """
     Dikdörtgen içindeki kuyuları döndür.
@@ -37,6 +36,13 @@ def handle_rectangle_select(r, eclick, erelease) -> Set[str]:
         or eclick.ydata is None
         or erelease.ydata is None
     ):
+        return set()
+
+    if eclick.x is None or eclick.y is None or erelease.x is None or erelease.y is None:
+        return set()
+
+    drag_px = max(abs(erelease.x - eclick.x), abs(erelease.y - eclick.y))
+    if drag_px < r._rect_drag_threshold_px:
         return set()
 
     x0, x1 = sorted([eclick.xdata, erelease.xdata])

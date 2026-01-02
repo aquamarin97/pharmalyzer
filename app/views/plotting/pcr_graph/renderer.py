@@ -55,6 +55,8 @@ class PCRGraphRenderer(FigureCanvas):
         self._rect_selector = None
         self._rect_selecting: bool = False
         self._rect_preview_wells: Set[str] = set()
+        self._rect_press_px: Optional[tuple[float, float]] = None
+        self._rect_drag_threshold_px: int = 5
 
         hover_width = float(self._style.fam_pen.get("linewidth", 0.05)) + 0.1
         self._hover_artist = LineCollection(
@@ -104,6 +106,7 @@ class PCRGraphRenderer(FigureCanvas):
         self._renderer_cache = None
         if self._render_timer.isActive():
             self._render_timer.stop()
+        self._rect_press_px = None
         setup_axes(self)
         self.ax.set_title(self._title)
         self.schedule_render(full=True, overlay=False)
