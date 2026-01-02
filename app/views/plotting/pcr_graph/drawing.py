@@ -1,7 +1,7 @@
 # app\views\plotting\pcr_graph\drawing.py
 # app/views/plotting/pcr/drawing.py
 from app.services.graph.pcr_graph_layout_service import PCRGraphLayoutService
-import app.utils
+import numpy as np
 from app.services.pcr_data_service import PCRCoords
 from .axes import setup_axes
 
@@ -13,7 +13,8 @@ def render_wells(r, data: Dict[str, PCRCoords]) -> None:
     r._fam_lines.clear()
     r._hex_lines.clear()
     r._line_to_well.clear()
-
+    r._well_geoms.clear()
+    
     r.ax.clear()
     setup_axes(r)
 
@@ -35,6 +36,10 @@ def render_wells(r, data: Dict[str, PCRCoords]) -> None:
 
         fam_has_data = fam_coords.size > 0
         hex_has_data = hex_coords.size > 0
+        r._well_geoms[well] = {
+            "fam": fam_coords if fam_has_data else np.empty((0, 2), dtype=float),
+            "hex": hex_coords if hex_has_data else np.empty((0, 2), dtype=float),
+        }
 
         if fam_has_data:
             fam_all.extend(fam_coords.tolist())

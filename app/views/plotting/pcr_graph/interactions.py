@@ -46,7 +46,7 @@ def set_hover(r, well: Optional[str]) -> None:
         return
     r._hover_well = normalized
     _apply_styles(r)
-    r.draw_idle()
+    # # r.draw_idle()
 
 def apply_hover_from_graph(r, well: Optional[str]) -> None:
     if r._store is not None:
@@ -68,13 +68,13 @@ def set_rect_preview(r, wells: Set[str]) -> None:
     if r._store is not None:
         r._store.set_preview(wells)
     _apply_styles(r)
-    r.draw_idle()
+    # r.draw_idle()
 
 
 def on_store_preview_changed(r, wells: Set[str]) -> None:
     r._rect_preview_wells = set(wells or set())
     _apply_styles(r)
-    r.draw_idle()
+    # r.draw_idle()
 
 
 def on_motion(r, event) -> None:
@@ -159,4 +159,8 @@ def _apply_styles(r) -> None:
     hovered = r._hover_well
     selected = selection.collect_selected_wells(r)
     preview = collect_preview_wells(r)
-    styles.apply_interaction_styles(r, hovered=hovered, selected=selected, preview=preview)
+    change = styles.apply_interaction_styles(r, hovered=hovered, selected=selected, preview=preview)
+    r.update_overlays(change.hover_segments, change.preview_segments)
+    if change.base_dirty:
+        r.invalidate_background()
+    r.schedule_render(full=change.base_dirty, overlay=change.overlay_dirty or change.base_dirty)
