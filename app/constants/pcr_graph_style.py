@@ -23,7 +23,7 @@ class AxesStyle:
     title_color: str = COLOR_STYLES.PLOT_TITLE_HEX
 
     default_xlim: Tuple[int, int] = (0, 40)
-    default_ylim: Tuple[int, int] = (0, 5000)
+    default_ylim: Tuple[int, int] = (0, 4500)
 
 
 @dataclass(frozen=True)

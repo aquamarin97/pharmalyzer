@@ -394,6 +394,11 @@ class PCRGraphRendererPG(pg.PlotWidget):
         y0, y1 = ylim if ylim else self._style.axes.default_ylim
         self._plot_item.setYRange(y0, y1, padding=0)
         self._plot_item.enableAutoRange(x=False, y=False)
+        self._plot_item.setXRange(0, 40, padding=0)
+        self._plot_item.setLimits(xMin=0, xMax=40)
+
+        axis = self._plot_item.getAxis("bottom")
+        axis.setTicks([[(i, str(i)) for i in range(0, 41, 5)]])
 
     def _refresh_legend(self) -> None:
         self._legend.clear()
@@ -412,23 +417,41 @@ class PCRGraphRendererPG(pg.PlotWidget):
         change = apply_interaction_styles(self, hovered=hovered, selected=selected, preview=preview)
         return change
 
-    def _update_overlays(self, change: InteractionStyleChange) -> None:
+    def _segments_to_xy_with_nans(self, segments: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
+        if not segments:
+            return np.array([]), np.array([])
+
+        xs_list = []
+        ys_list = []
+        for seg in segments:
+            if seg is None or seg.size == 0:
+                continue
+            # seg shape (N,2) varsayımı
+            xs_list.append(seg[:, 0])
+            ys_list.append(seg[:, 1])
+            # segment kırıcı
+            xs_list.append(np.array([np.nan]))
+            ys_list.append(np.array([np.nan]))
+
+        if not xs_list:
+            return np.array([]), np.array([])
+        return np.concatenate(xs_list), np.concatenate(ys_list)
+
+    def _update_overlays(self, change):
         if change.hover_segments:
-            xs = np.concatenate([seg[:, 0] for seg in change.hover_segments])
-            ys = np.concatenate([seg[:, 1] for seg in change.hover_segments])
+            xs, ys = self._segments_to_xy_with_nans(change.hover_segments)
             self._hover_overlay.setData(xs, ys)
             self._hover_overlay.setVisible(True)
         else:
-            self._hover_overlay.clear()
+            self._hover_overlay.setData([], [])
             self._hover_overlay.setVisible(False)
 
         if change.preview_segments:
-            xs = np.concatenate([seg[:, 0] for seg in change.preview_segments])
-            ys = np.concatenate([seg[:, 1] for seg in change.preview_segments])
+            xs, ys = self._segments_to_xy_with_nans(change.preview_segments)
             self._preview_overlay.setData(xs, ys)
             self._preview_overlay.setVisible(True)
         else:
-            self._preview_overlay.clear()
+            self._preview_overlay.setData([], [])
             self._preview_overlay.setVisible(False)
 
     def _collect_preview_wells(self) -> Set[str]:
@@ -480,11 +503,6 @@ class PCRGraphRendererPG(pg.PlotWidget):
             overlay = self._pending_overlay or full
             self._pending_full_draw = False
             self._pending_overlay = False
-
-            # PyQtGraph'te PlotDataItem nesneleri (fam_items, hex_items, overlays)
-            # zaten setData veya setVisible çağrıldığı an kendi 'dirty' bayraklarını dikerler.
-            # PlotWidget'ın (self) update() metodunu çağırmak, Qt'ye 
-            # "bu widget'ın görünümü değişti, ilk fırsatta boya (paintEvent)" mesajı gönderir.
             
             if full or overlay:
                 self.update() # Veya self._plot_item.update()
