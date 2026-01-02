@@ -1,12 +1,12 @@
 # app\controllers\interaction\interaction_controller.py
 from __future__ import annotations
 
+from app.services.interaction_store import InteractionStore
 from app.services.pcr_data_service import PCRDataService
 from app.views.widgets.pcr_graph_view import PCRGraphView
 from app.views.widgets.pcr_plate.pcr_plate_widget import PCRPlateWidget
 from app.views.widgets.regression_graph_view import RegressionGraphView
 from app.controllers.table.table_interaction_controller import TableInteractionController
-from app.services.data_management.interaction_store import InteractionStore
 
 
 class InteractionController:

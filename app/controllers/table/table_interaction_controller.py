@@ -2,32 +2,31 @@
 from __future__ import annotations
 
 import logging
-from typing import Set, Optional
-
-from PyQt5.QtCore import QEvent, QObject, Qt, QItemSelection, QItemSelectionModel
+from app.services.interaction_store import InteractionStore
+from typing import Set
+from PyQt5.QtCore import QEvent, QObject, Qt
 from PyQt5.QtGui import QKeyEvent
 from PyQt5.QtWidgets import QApplication, QAbstractItemView
 
-from app.services.data_management import well_mapping
-from app.services.data_management.interaction_store import InteractionStore
-from app.services.data_management.data_store import DataStore
+from app.services.interaction_store import InteractionStore
+from app.utils import well_mapping
 
 logger = logging.getLogger(__name__)
 
 
 class TableInteractionController(QObject):
-    def __init__(self, table_widget, pcr_data_service, graph_drawer=None, interaction_store: Optional[InteractionStore] = None):
+    def __init__(self, table_widget, pcr_data_service, graph_drawer=None, interaction_store: InteractionStore | None = None):
         super().__init__()
         self.table_widget = table_widget
         self.pcr_data_service = pcr_data_service
         self.graph_drawer = graph_drawer
-        self.interaction_store: Optional[InteractionStore] = interaction_store
+        self.interaction_store: InteractionStore | None = interaction_store
 
-        self.table_widget.setEditTriggers(QAbstractItemView.SelectedClicked | QAbstractItemView.CurrentChanged)
-
+        self.table_widget.setEditTriggers(
+            QAbstractItemView.SelectedClicked | QAbstractItemView.CurrentChanged
+        )
         self._syncing_from_store = False
         self._selection_model = None
-        self._store_connected = False
 
         self.table_widget.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table_widget.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -35,33 +34,18 @@ class TableInteractionController(QObject):
         self.table_widget.clicked.connect(self.on_item_clicked)
         self.table_widget.installEventFilter(self)
         self.attach_selection_model()
-
-        if self.interaction_store is not None:
-            self._connect_store_once()
-
-    def _connect_store_once(self) -> None:
-        if self.interaction_store is None or self._store_connected:
-            return
-        self._store_connected = True
-        self.interaction_store.selectedChanged.connect(self._apply_store_selection)
-        # mevcut state'i uygula
-        self._apply_store_selection(set(self.interaction_store.selected_wells))
-
-    def set_interaction_store(self, store: InteractionStore) -> None:
-        self.interaction_store = store
-        self._store_connected = False
-        self._connect_store_once()
-
+        
     def on_item_clicked(self, index):
         model = self.table_widget.model()
         if model is None or not index.isValid():
             return
 
+        row = index.row()
+
         if not hasattr(model, "get_patient_no"):
             logger.warning("Table model get_patient_no() sağlamıyor. Model=%s", type(model).__name__)
             return
 
-        row = index.row()
         raw_patient_no = model.get_patient_no(row)
         if raw_patient_no is None:
             return
@@ -70,15 +54,15 @@ class TableInteractionController(QObject):
         if patient_no is None:
             return
 
+        # ✅ aynı hasta tekrar seçilirse çizme
         try:
             wells = {well_mapping.patient_no_to_well_id(patient_no)}
         except ValueError as exc:
             logger.warning("Geçersiz hasta numarası: %s", exc)
             return
-
         if self.interaction_store is None:
+            logger.warning("InteractionStore set edilmedi; tablo seçimi işlenemedi.")
             return
-
         if QApplication.keyboardModifiers() & Qt.ControlModifier:
             self.interaction_store.toggle_wells(wells)
         else:
@@ -91,6 +75,7 @@ class TableInteractionController(QObject):
         except (TypeError, ValueError):
             return None
 
+
     def eventFilter(self, obj, event):
         if obj == self.table_widget and event.type() == QEvent.KeyPress and isinstance(event, QKeyEvent):
             if event.key() in (Qt.Key_Return, Qt.Key_Enter):
@@ -98,7 +83,16 @@ class TableInteractionController(QObject):
                 if index.isValid():
                     self.on_item_clicked(index)
                     return True
-        return super().eventFilter(obj, event)
+        return super().eventFilter(obj, event) 
+    def set_interaction_store(self, store: InteractionStore) -> None:
+        self.interaction_store = store
+        try:
+            self.interaction_store.selectedChanged.connect(self._apply_store_selection)
+        except Exception:
+            # bağlanamıyorsa sessizce geç
+            pass
+        # mevcut state'i uygula
+        self._apply_store_selection(self.interaction_store.selected_wells if self.interaction_store else set())
 
     def attach_selection_model(self):
         sel_model = self.table_widget.selectionModel()
@@ -119,6 +113,7 @@ class TableInteractionController(QObject):
             return
 
         if QApplication.keyboardModifiers() & Qt.ControlModifier:
+            # ctrl toggles mouse click ile ele alındı; burada state'i zorlamayalım
             return
 
         wells = self._gather_selected_wells()
@@ -129,12 +124,11 @@ class TableInteractionController(QObject):
 
     def _gather_selected_wells(self) -> Set[str]:
         model = self.table_widget.model()
-        sel_model = self.table_widget.selectionModel()
-        if model is None or sel_model is None or not hasattr(model, "get_patient_no"):
+        if model is None or not hasattr(model, "get_patient_no"):
             return set()
 
         wells: Set[str] = set()
-        for idx in sel_model.selectedRows():
+        for idx in self.table_widget.selectionModel().selectedRows():
             pn = self._normalize_patient_no(model.get_patient_no(idx.row()))
             if pn is None:
                 continue
@@ -145,48 +139,29 @@ class TableInteractionController(QObject):
         return wells
 
     def _apply_store_selection(self, wells: Set[str]) -> None:
-        """
-        Release-grade:
-        - O(N) satır tarama YOK
-        - DataStore index cache ile patient->row O(k)
-        - Batch selection (QItemSelection) + updates disabled
-        """
         model = self.table_widget.model()
         sel_model = self.table_widget.selectionModel()
         if model is None or sel_model is None:
             return
 
-        # wells -> patient_nos
-        target_patients: list[int] = []
-        for w in wells or set():
-            if not well_mapping.is_valid_well_id(w):
-                continue
-            try:
-                target_patients.append(well_mapping.well_id_to_patient_no(w))
-            except ValueError:
-                continue
-
         self._syncing_from_store = True
-        self.table_widget.setUpdatesEnabled(False)
         try:
             sel_model.clearSelection()
+            target_patients = set()
+            for w in wells:
+                if not well_mapping.is_valid_well_id(w):
+                    continue
+                try:
+                    target_patients.add(well_mapping.well_id_to_patient_no(w))
+                except ValueError:
+                    continue
             if not target_patients:
                 return
 
-            rows = DataStore.find_rows_by_patient_nos(target_patients)
-
-            if not rows:
-                # index cache yoksa fall-back: minimum iş (satır tarama yapmıyoruz)
-                return
-
-            selection = QItemSelection()
-            for r in rows:
-                # row seçimi için 0..last_col aralığı seç
-                top_left = model.index(r, 0)
-                bottom_right = model.index(r, max(0, model.columnCount() - 1))
-                selection.select(top_left, bottom_right)
-
-            sel_model.select(selection, QItemSelectionModel.Select | QItemSelectionModel.Rows)
+            for row in range(model.rowCount()):
+                pn_raw = model.get_patient_no(row) if hasattr(model, "get_patient_no") else None
+                pn = self._normalize_patient_no(pn_raw)
+                if pn in target_patients:
+                    self.table_widget.selectRow(row)
         finally:
-            self.table_widget.setUpdatesEnabled(True)
             self._syncing_from_store = False

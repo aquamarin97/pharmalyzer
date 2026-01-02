@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 from typing import Set
-from app.services.data_management.interaction_store import InteractionStore
 
+from app.services.interaction_store import InteractionStore
 
 
 def toggle_header_selection(store: InteractionStore, wells: Set[str]) -> None:

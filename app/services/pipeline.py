@@ -7,8 +7,8 @@ from collections.abc import Iterable
 from typing import Callable, Optional
 
 import pandas as pd
-from app.services.data_management.data_store import DataStore
 
+from app.services.data_store import DataStore
 
 # Tip tanımlamaları (Type Hinting)
 Transform = Callable[[pd.DataFrame], pd.DataFrame]
@@ -34,7 +34,7 @@ class Pipeline:
     @staticmethod
     def apply(step: Step, copy_input: bool = False) -> pd.DataFrame:
         """DataStore'daki mevcut veriyi alır ve adımı uygular."""
-        df = DataStore.get_df_shallow() if copy_input else DataStore.get_df_view()
+        df = DataStore.get_df_copy() if copy_input else DataStore.get_df()
         
         # Fonksiyonu çalıştır ve sonucu al
         result_df = step.fn(df)

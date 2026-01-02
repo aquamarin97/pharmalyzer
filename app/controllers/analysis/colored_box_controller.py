@@ -2,8 +2,8 @@
 # app\controllers\colored_box_controller.py
 from PyQt5.QtCore import QObject, pyqtSignal
 
+from app.services.data_store import DataStore
 from app.services.colored_box_service import ColoredBoxService, ColoredBoxConfig
-from app.services.data_management.data_store import DataStore
 
 
 class ColoredBoxController(QObject):
@@ -32,6 +32,6 @@ class ColoredBoxController(QObject):
         self.cfg.carrier_threshold = float(v)
 
     def define_box_color(self):
-        df = DataStore.get_df_view()
+        df = DataStore.get_df_copy()
         self.last_result = self.service.compute(df, self.cfg)
         self.calculationCompleted.emit(self.last_result)

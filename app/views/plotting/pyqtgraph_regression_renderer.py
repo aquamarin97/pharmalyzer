@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import pyqtgraph as pg
 
+from app.services.interaction_store import InteractionStore
 from app.services.regression_plot_service import RegressionPlotData
 from app.views.plotting.regression.interaction import RegressionInteraction
 from app.views.plotting.regression.renderer import RegressionRenderer
 from app.views.plotting.regression.styles import RegressionPlotStyle
-from app.services.data_management.interaction_store import InteractionStore
 
 
 class PyqtgraphRegressionRenderer:

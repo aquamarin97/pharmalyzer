@@ -5,7 +5,7 @@ from typing import Optional, Set
 
 from matplotlib.widgets import RectangleSelector
 
-from app.services.data_management import well_mapping
+from app.utils import well_mapping
 
 from . import hit_test, selection, styles
 

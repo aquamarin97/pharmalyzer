@@ -12,13 +12,12 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
+from app.services.data_store import DataStore
 
 logger = logging.getLogger(__name__)
 
 Coord = Tuple[int, float]
-from app.services.data_management import well_mapping
-from app.services.data_management.data_store import DataStore
-
+from app.utils import well_mapping
 
 @dataclass(frozen=True)
 class PCRCoords:
@@ -46,7 +45,7 @@ class PCRDataService:
 
     @staticmethod
     def get_coords(patient_no: Any) -> PCRCoords:
-        df = DataStore.get_df_view()
+        df = DataStore.get_df()
         if df is None or df.empty:
             raise ValueError("DataStore boş. Veri yüklenmedi.")
 
@@ -66,7 +65,7 @@ class PCRDataService:
         if not valid_wells:
             return {}
 
-        df = DataStore.get_df_view()
+        df = DataStore.get_df()
         if df is None or df.empty:
             raise ValueError("DataStore boş. Veri yüklenmedi.")
 
@@ -170,28 +169,21 @@ class PCRDataService:
         PCRDataService._cache_token += 1
         PCRDataService._literal_eval_cached.cache_clear()
 
-        # itertuples: iterrows'dan hızlı ve daha az overhead
-        cols = [PCRDataService.HASTA_NO_COL, PCRDataService.FAM_COL, PCRDataService.HEX_COL]
-        for row in df[cols].itertuples(index=False, name=None):
+        for _, row in df.iterrows():
             try:
-                pn = PCRDataService._normalize_patient_no(row[0])
+                pn = PCRDataService._normalize_patient_no(row[PCRDataService.HASTA_NO_COL])
             except ValueError:
                 continue
 
-            fam_raw = row[1]
-            hex_raw = row[2]
-            try:
-                fam_coords = PCRDataService._parse_coords_cached(fam_raw, label="FAM")
-                hex_coords = PCRDataService._parse_coords_cached(hex_raw, label="HEX")
-            except Exception:
-                continue
-
+            fam_raw = row[PCRDataService.FAM_COL]
+            hex_raw = row[PCRDataService.HEX_COL]
+            fam_coords = PCRDataService._parse_coords_cached(fam_raw, label="FAM")
+            hex_coords = PCRDataService._parse_coords_cached(hex_raw, label="HEX")
             PCRDataService._coords_cache[pn] = PCRCoords(fam=fam_coords, hex=hex_coords)
-
 
     @staticmethod
     def get_cache_token() -> int:
-        df = DataStore.get_df_view()
+        df = DataStore.get_df()
         if df is None or df.empty:
             return PCRDataService._cache_token
 

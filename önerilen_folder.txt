@@ -1,0 +1,308 @@
+pharmalyzer/
+├── app/
+│   ├── __init__.py
+│   ├── bootstrap/
+│   │   ├── __init__.py
+│   │   ├── app_initializer.py      # main_helper.py → buraya
+│   │   ├── resources.py
+│   │   └── splash.py
+│   │
+│   ├── config/                      # YENİ: Runtime config management
+│   │   ├── __init__.py
+│   │   ├── manager.py
+│   │   └── schema.py
+│   │
+│   ├── constants/
+│   │   ├── __init__.py
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   ├── styles.py
+│   │   │   └── text_keys.py
+│   │   ├── paths/
+│   │   │   ├── __init__.py
+│   │   │   └── assets.py
+│   │   ├── plotting/
+│   │   │   ├── __init__.py
+│   │   │   ├── pcr_styles.py
+│   │   │   └── regression_styles.py
+│   │   └── data/
+│   │       ├── __init__.py
+│   │       ├── export_presets.py
+│   │       └── table_config.py
+│   │
+│   ├── controllers/
+│   │   ├── __init__.py
+│   │   ├── base_controller.py      # YENİ: Abstract base
+│   │   ├── main_controller.py
+│   │   ├── analysis/
+│   │   │   ├── __init__.py
+│   │   │   └── analysis_controller.py
+│   │   ├── data/                    # YENİ: Data operations
+│   │   │   ├── __init__.py
+│   │   │   ├── import_controller.py
+│   │   │   ├── export_controller.py
+│   │   │   └── drag_drop_controller.py
+│   │   └── ui/                      # YENİ: UI-specific controllers
+│   │       ├── __init__.py
+│   │       ├── graph_controller.py
+│   │       ├── table_controller.py
+│   │       ├── interaction_controller.py
+│   │       └── well_edit_controller.py
+│   │
+│   ├── domain/                      # YENİ: Domain models & business logic
+│   │   ├── __init__.py
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   ├── analysis.py
+│   │   │   ├── pcr_data.py
+│   │   │   └── well.py
+│   │   ├── repositories/            # YENİ: Data access abstractions
+│   │   │   ├── __init__.py
+│   │   │   └── data_repository.py
+│   │   └── value_objects/           # YENİ: Immutable value types
+│   │       ├── __init__.py
+│   │       └── color.py
+│   │
+│   ├── exceptions/
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── handler.py
+│   │   └── types.py
+│   │
+│   ├── i18n/
+│   │   ├── __init__.py
+│   │   ├── loader.py
+│   │   ├── translations/
+│   │   │   ├── en.json            # YENİ: English
+│   │   │   └── tr.json
+│   │   └── formatter.py            # YENİ: Message formatting
+│   │
+│   ├── licensing/
+│   │   ├── __init__.py
+│   │   ├── manager.py
+│   │   ├── validator.py
+│   │   └── ui/                     # YENİ: License UI components
+│   │       ├── __init__.py
+│   │       └── dialogs.py
+│   │
+│   ├── logging/
+│   │   ├── __init__.py
+│   │   ├── setup.py
+│   │   ├── formatters.py          # YENİ: Custom formatters
+│   │   └── handlers.py            # YENİ: Custom handlers
+│   │
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── core/                   # Business logic services
+│   │   │   ├── __init__.py
+│   │   │   ├── analysis/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── service.py
+│   │   │   │   ├── pipeline.py
+│   │   │   │   ├── summary.py
+│   │   │   │   └── steps/
+│   │   │   │       ├── __init__.py
+│   │   │   │       ├── regression.py
+│   │   │   │       ├── with_reference.py
+│   │   │   │       ├── without_reference.py
+│   │   │   │       └── csv_processor.py
+│   │   │   ├── export/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── service.py
+│   │   │   │   ├── options.py
+│   │   │   │   └── exporters/
+│   │   │   │       ├── __init__.py
+│   │   │   │       ├── base.py     # YENİ: Abstract exporter
+│   │   │   │       ├── excel.py
+│   │   │   │       └── tsv.py
+│   │   │   └── plotting/
+│   │   │       ├── __init__.py
+│   │   │       ├── pcr_layout.py
+│   │   │       └── regression_plot.py
+│   │   ├── infrastructure/         # YENİ: External service integrations
+│   │   │   ├── __init__.py
+│   │   │   ├── rdml/
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── service.py
+│   │   │   └── file_system/
+│   │   │       ├── __init__.py
+│   │   │       └── service.py
+│   │   └── state/                  # YENİ: State management
+│   │       ├── __init__.py
+│   │       ├── data_store.py
+│   │       └── interaction_store.py
+│   │
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── decorators/             # YENİ: Custom decorators
+│   │   │   ├── __init__.py
+│   │   │   ├── performance.py
+│   │   │   └── validation.py
+│   │   ├── helpers/                # YENİ: Helper functions
+│   │   │   ├── __init__.py
+│   │   │   ├── pandas_utils.py
+│   │   │   ├── qt_utils.py
+│   │   │   └── well_mapping.py
+│   │   ├── parsers/                # YENİ: File parsers
+│   │   │   ├── __init__.py
+│   │   │   ├── rdml_parser.py
+│   │   │   └── rdml_reader.py
+│   │   └── validators/
+│   │       ├── __init__.py
+│   │       └── well_validators.py
+│   │
+│   ├── workers/                    # YENİ: Background workers (models/workers → buraya)
+│   │   ├── __init__.py
+│   │   ├── base_worker.py
+│   │   └── analysis_worker.py
+│   │
+│   └── views/
+│       ├── __init__.py
+│       ├── base/                   # YENİ: Base view classes
+│       │   ├── __init__.py
+│       │   ├── base_view.py
+│       │   └── base_widget.py
+│       ├── components/             # YENİ: Reusable UI components
+│       │   ├── __init__.py
+│       │   ├── buttons/
+│       │   ├── inputs/
+│       │   └── dialogs/
+│       │       ├── __init__.py
+│       │       └── common_dialogs.py
+│       ├── plotting/
+│       │   ├── __init__.py
+│       │   ├── base/               # YENİ: Base plotting classes
+│       │   │   ├── __init__.py
+│       │   │   └── base_renderer.py
+│       │   ├── pcr/
+│       │   │   ├── __init__.py
+│       │   │   ├── axes.py
+│       │   │   ├── drawing.py
+│       │   │   ├── hit_test.py
+│       │   │   ├── interactions.py
+│       │   │   ├── renderer.py
+│       │   │   ├── selection.py
+│       │   │   ├── styles.py
+│       │   │   └── view.py         # pcr_graph_view.py → buraya
+│       │   └── regression/
+│       │       ├── __init__.py
+│       │       ├── adapters.py
+│       │       ├── annotations.py
+│       │       ├── handles.py
+│       │       ├── interaction.py
+│       │       ├── legends.py
+│       │       ├── renderer.py
+│       │       ├── styles.py
+│       │       └── view.py          # regression_graph_view.py → buraya
+│       ├── table/
+│       │   ├── __init__.py
+│       │   ├── delegates/          # YENİ: Table delegates
+│       │   │   ├── __init__.py
+│       │   │   └── dropdown.py
+│       │   ├── models/
+│       │   │   ├── __init__.py
+│       │   │   └── editable_model.py
+│       │   └── widgets/
+│       │       ├── __init__.py
+│       │       └── table_view.py
+│       ├── widgets/
+│       │   ├── __init__.py
+│       │   ├── pcr_plate/
+│       │   │   ├── __init__.py
+│       │   │   ├── widget.py
+│       │   │   ├── table.py
+│       │   │   ├── store_binding.py
+│       │   │   ├── interaction/
+│       │   │   │   ├── __init__.py
+│       │   │   │   ├── drag_select.py
+│       │   │   │   ├── header_select.py
+│       │   │   │   └── range_select.py
+│       │   │   ├── paint/
+│       │   │   │   ├── __init__.py
+│       │   │   │   ├── corner.py
+│       │   │   │   ├── header_selection.py
+│       │   │   │   └── hover_preview.py
+│       │   │   └── setup/
+│       │   │       ├── __init__.py
+│       │   │       ├── grid_setup.py
+│       │   │       └── resizing.py
+│       │   └── interactors/        # YENİ: Graph interactors
+│       │       ├── __init__.py
+│       │       └── pcr_interactor.py
+│       └── pages/                  # YENİ: Main application pages
+│           ├── __init__.py
+│           └── main_page.py
+│
+├── assets/
+│   ├── icons/
+│   │   ├── app/
+│   │   │   ├── appicon.ico
+│   │   │   └── appicon.png
+│   │   └── ui/                     # YENİ: UI icons
+│   ├── images/
+│   │   └── pharmalinelogo.svg
+│   ├── fonts/                      # YENİ: Custom fonts
+│   └── styles/                     # YENİ: QSS stylesheets
+│       └── main.qss
+│
+├── config/
+│   ├── __init__.py
+│   ├── settings.py
+│   ├── development.py
+│   ├── production.py
+│   └── logging.yaml                # YENİ: Logging configuration
+│
+├── data/                           # YENİ: Runtime data
+│   ├── cache/
+│   ├── samples/
+│   └── user/
+│
+├── docs/
+│   ├── README.md
+│   ├── architecture.md             # YENİ: Architecture docs
+│   ├── api/                        # YENİ: API documentation
+│   └── user_guide/                 # YENİ: User documentation
+│
+├── scripts/
+│   ├── build.py                    # YENİ: Build script
+│   ├── deploy.py                   # YENİ: Deployment script
+│   └── dev_tools/                  # YENİ: Development utilities
+│       └── tapphelper.py
+│
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── unit/
+│   │   ├── __init__.py
+│   │   ├── services/
+│   │   ├── controllers/
+│   │   └── utils/
+│   ├── integration/
+│   │   ├── __init__.py
+│   │   └── test_analysis_pipeline.py
+│   ├── ui/                         # YENİ: UI tests
+│   │   ├── __init__.py
+│   │   └── test_main_window.py
+│   ├── performance/                # YENİ: Performance tests
+│   │   ├── __init__.py
+│   │   └── test_plotting_performance.py
+│   └── fixtures/
+│       ├── sample_data.csv
+│       └── sample.rdml
+│
+├── .github/                        # YENİ: GitHub workflows
+│   └── workflows/
+│       ├── ci.yml
+│       └── release.yml
+│
+├── .gitignore
+├── main.py
+├── requirements.txt
+├── requirements-dev.txt            # YENİ: Development dependencies
+├── setup.py                        # YENİ: Package setup
+├── pyproject.toml                  # YENİ: Modern Python config
+├── README.md
+├── CHANGELOG.md                    # YENİ: Version history
+└── LICENSE                         # YENİ: License file 
+
+

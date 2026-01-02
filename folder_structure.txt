@@ -2,13 +2,10 @@ pharmalyzer/
 ├── app
 │   ├── bootstrap
 │   │   ├── resources.py
-│   │   ├── splash.py
-│   │   └── warmup.py
+│   │   └── splash.py
 │   ├── common
 │   │   └── widgets
 │   │       └── dialogs.py
-│   ├── config
-│   │   └── settings.py
 │   ├── constants
 │   │   ├── app_styles.py
 │   │   ├── app_text_key.py
@@ -27,7 +24,10 @@ pharmalyzer/
 │   │   │   └── graph_controller.py
 │   │   ├── interaction
 │   │   │   └── interaction_controller.py
+│   │   ├── pcr_plate
 │   │   ├── table
+│   │   │   ├── highlight_sync.py
+│   │   │   ├── selection_sync.py
 │   │   │   ├── table_controller.py
 │   │   │   └── table_interaction_controller.py
 │   │   ├── well
@@ -60,10 +60,6 @@ pharmalyzer/
 │   │   │   ├── calculate_without_reference.py
 │   │   │   ├── configurate_result_csv.py
 │   │   │   └── csv_processor.py
-│   │   ├── data_management
-│   │   │   ├── data_store.py
-│   │   │   ├── interaction_store.py
-│   │   │   └── well_mapping.py
 │   │   ├── export
 │   │   │   ├── exporters
 │   │   │   │   ├── excel_exporter.py
@@ -89,7 +85,8 @@ pharmalyzer/
 │   │   ├── validators
 │   │   │   └── well_validators.py
 │   │   ├── pandas_utils.py
-│   │   └── qt_table_utils.py
+│   │   ├── qt_table_utils.py
+│   │   └── well_mapping.py
 │   └── views
 │       ├── plotting
 │       │   ├── pcr_graph
@@ -102,7 +99,10 @@ pharmalyzer/
 │       │   │   └── styles.py
 │       │   ├── regression
 │       │   │   ├── adapters.py
+│       │   │   ├── annotations.py
+│       │   │   ├── handles.py
 │       │   │   ├── interaction.py
+│       │   │   ├── legends.py
 │       │   │   ├── renderer.py
 │       │   │   └── styles.py
 │       │   └── pyqtgraph_regression_renderer.py
@@ -133,10 +133,11 @@ pharmalyzer/
 │       │   └── regression_graph_view.py
 │       └── main_view.py
 ├── assets
-│   ├── a.txt
 │   ├── appicon.ico
 │   ├── appicon.png
 │   └── pharmalinelogo.svg
+├── config
+│   └── a.txt
 ├── deployments
 │   └── a.txt
 ├── docs
@@ -149,8 +150,8 @@ pharmalyzer/
 │   └── a.txt
 ├── scripts
 │   └── a.txt
+├── tests
 ├── .gitignore
-├── final_design_v3_3.ui
 ├── git_commends.txt
 ├── main.py
 ├── main_helper.py

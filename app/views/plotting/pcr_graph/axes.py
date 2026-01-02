@@ -1,7 +1,4 @@
-# app\views\plotting\pcr_graph\axes.py
-
-# app\views\plotting\pcr_graph\axes.py
-
+# app/views/plotting/pcr/axes.py
 
 def setup_axes(r) -> None:
     s = r._style.axes

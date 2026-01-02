@@ -10,10 +10,9 @@ from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from app.controllers.analysis.colored_box_controller import ColoredBoxController
 from app.services.analysis_service import AnalysisService
 from app.services.rdml_service import RDMLService
-from app.services.data_management.data_store import DataStore
+from app.services.data_store import DataStore
 from app.services.pcr_data_service import PCRDataService
 from app.models.workers.analysis_worker import AnalysisWorker
-from app.views.table.editable_table_model import EditableTableModel
 
 
 @dataclass
@@ -62,12 +61,10 @@ class MainModel(QObject):
 
     def import_rdml(self, file_path: str) -> None:
         df = RDMLService.rdml_to_dataframe(file_path)
-        DataStore.configure_patient_no_column(EditableTableModel.PATIENT_NO_COL)
-        DataStore.set_df(df, build_indexes=True)
+        DataStore.set_df(df)
         PCRDataService.clear_cache()
         self.rdml_df = df
         self.state.rdml_path = file_path
-
 
     # ---------------- Analysis (thread-per-run) ----------------
     def run_analysis(self) -> None:
@@ -116,27 +113,11 @@ class MainModel(QObject):
         # UI'ye durum bildir (önce)
         self._busy = False
         self.analysis_busy.emit(False)
-
-        # ✅ Analiz başarılıysa DataStore'u analiz çıktısıyla güncelle
-        if success:
-            try:
-                out_df = self.analysis_service.last_df
-                if out_df is not None and not out_df.empty:
-                    # "Hasta No" kolonunu kullanıyoruz (EditableTableModel ile aynı kaynak)
-                    DataStore.configure_patient_no_column(EditableTableModel.PATIENT_NO_COL)
-                    DataStore.set_df(out_df, build_indexes=True)
-                    PCRDataService.clear_cache()
-            except Exception as exc:
-                # DataStore güncellemesi başarısızsa analizi tamamen fail saymak istemiyorsan:
-                self.analysis_error.emit(f"Analiz sonucu UI store'a yazılamadı: {exc}")
-
         self.analysis_finished.emit(bool(success))
         if summary is not None:
             self.analysis_summary_ready.emit(summary)
-
         # Thread'i kapat (non-blocking)
         self._cleanup_analysis_thread(non_blocking=True)
-
 
     def _cleanup_analysis_thread(self, *, non_blocking: bool) -> None:
         """

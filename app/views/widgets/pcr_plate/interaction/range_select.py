@@ -5,8 +5,8 @@ from typing import Set, Tuple
 
 from PyQt5.QtCore import Qt
 
-from app.services.data_management import well_mapping
-from app.services.data_management.interaction_store import InteractionStore
+from app.services.interaction_store import InteractionStore
+from app.utils import well_mapping
 
 
 def apply_range_selection(

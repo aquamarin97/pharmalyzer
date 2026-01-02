@@ -1,4 +1,5 @@
 # app\services\analysis_steps\csv_processor.py
+# app/services/analysis_steps/csv_processor.py
 from __future__ import annotations
 
 import ast
@@ -16,30 +17,13 @@ class CSVProcessor:
 
     @staticmethod
     def improved_preprocess(df: pd.DataFrame) -> pd.DataFrame:
-        def safe_last_rfu(val):
-            """
-            val: stringified list veya list
-            dönüş: son noktanın rfu değeri (float) veya None
-            """
-            if val is None:
-                return None
+        def safe_literal_eval(val):
             if isinstance(val, str):
                 try:
-                    parsed = ast.literal_eval(val)
+                    return ast.literal_eval(val)
                 except Exception:
                     return None
-            else:
-                parsed = val
-
-            if not isinstance(parsed, (list, tuple)) or not parsed:
-                return None
-            last = parsed[-1]
-            if not isinstance(last, (list, tuple)) or len(last) != 2:
-                return None
-            try:
-                return float(last[1])
-            except Exception:
-                return None
+            return None
 
         cols_to_clear = [
             "Δ Ct", "Δ_Δ Ct", "İstatistik Oranı", "Yazılım Hasta Sonucu",
@@ -49,19 +33,25 @@ class CSVProcessor:
 
         df = CSVProcessor.fill_missing_react_ids(df)
 
-        # kolonları stabilize et
         df["FAM koordinat list"] = df.get("FAM koordinat list", "[]")
         df["HEX koordinat list"] = df.get("HEX koordinat list", "[]")
 
-        df["FAM koordinat list"] = df["FAM koordinat list"].fillna("[]")
-        df["HEX koordinat list"] = df["HEX koordinat list"].fillna("[]")
+        df["FAM koordinat list"] = df["FAM koordinat list"].fillna("[]").astype(str)
+        df["HEX koordinat list"] = df["HEX koordinat list"].fillna("[]").astype(str)
 
-        # --- fam_end_rfu / hex_end_rfu: tek fonksiyon, vektörize apply (96 satır için yeterince hızlı)
-        fam_end = df["FAM koordinat list"].map(safe_last_rfu)
-        hex_end = df["HEX koordinat list"].map(safe_last_rfu)
+        fam_end = []
+        hex_end = []
 
-        df["fam_end_rfu"] = pd.to_numeric(fam_end, errors="coerce").fillna(0.0)
-        df["hex_end_rfu"] = pd.to_numeric(hex_end, errors="coerce").fillna(0.0)
+        for val in df["FAM koordinat list"].values:
+            parsed = safe_literal_eval(val)
+            fam_end.append(parsed[-1][-1] if parsed else None)
+
+        for val in df["HEX koordinat list"].values:
+            parsed = safe_literal_eval(val)
+            hex_end.append(parsed[-1][-1] if parsed else None)
+
+        df["fam_end_rfu"] = pd.to_numeric(pd.Series(fam_end), errors="coerce").fillna(0.0)
+        df["hex_end_rfu"] = pd.to_numeric(pd.Series(hex_end), errors="coerce").fillna(0.0)
         df["rfu_diff"] = df["fam_end_rfu"] - df["hex_end_rfu"]
 
         df["FAM Ct"] = pd.to_numeric(df.get("FAM Ct"), errors="coerce")
@@ -70,13 +60,8 @@ class CSVProcessor:
 
         df["Kuyu No"] = CSVProcessor.generate_kuyu_no(len(df))
         df = CSVProcessor.apply_conditions(df)
-
-        # RELEASE-GRADE: React ID'yi "Hasta No" ile aynı kaynağa bağla (graph/table cache için)
-        # Eğer UI/table "Hasta No" kullanıyorsa, burada üretmek en stabil çözüm.
-        if "Hasta No" not in df.columns and "React ID" in df.columns:
-            df["Hasta No"] = pd.to_numeric(df["React ID"], errors="coerce")
-
         return df
+
     @staticmethod
     def generate_kuyu_no(num_rows: int):
         import string

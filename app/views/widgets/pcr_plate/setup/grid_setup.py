@@ -6,7 +6,7 @@ from typing import Callable
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem
 
-from app.services.data_management import well_mapping
+from app.utils import well_mapping
 
 
 def initialize_grid(
