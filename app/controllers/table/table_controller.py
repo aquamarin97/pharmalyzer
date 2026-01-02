@@ -1,3 +1,4 @@
+# app\controllers\table\table_controller.py
 import pandas as pd
 from PyQt5.QtGui import QStandardItemModel
 
