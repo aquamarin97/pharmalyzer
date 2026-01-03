@@ -1,15 +1,18 @@
+# app\views\plotting\pcr_graph_pg\styles.py
 # app\views\plotting\pcr_graph_pg\styles_pg.py
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtGui
 
-from app.constants.pcr_graph_style import PCRGraphStyle
+PenKey = Tuple[str, float, float, bool]
+
+_PEN_CACHE: Dict[PenKey, QtGui.QPen] = {}
 
 
 @dataclass
@@ -31,10 +34,16 @@ class StyleState:
 def build_pen(color: str, base_pen: Dict[str, float | str], *, selected: bool = False) -> QtGui.QPen:
     alpha = float(base_pen.get("alpha", 1.0))
     width = float(base_pen.get("linewidth", 1.5))
+    key: PenKey = (color, width, alpha, selected)
+    cached = _PEN_CACHE.get(key)
+    if cached is not None:
+        return cached
+
     color_obj = QtGui.QColor(color)
     color_obj.setAlphaF(1.0 if selected else alpha)
     pen = pg.mkPen(color=color_obj, width=width + (0.6 if selected else 0.0))
     pen.setCosmetic(True)
+    _PEN_CACHE[key] = pen
     return pen
 
 
@@ -125,17 +134,3 @@ def set_channel_visibility(r, fam_visible: bool | None = None, hex_visible: bool
         item.setVisible(r._hex_visible and bool(item.property("has_data")))
 
     return True
-
-
-def set_title(r, title: str) -> None:
-    r._title = title
-    r._plot_item.setTitle(r._title, color=r._style.axes.title_color)
-
-
-def legend_entries(r) -> List[tuple]:
-    entries: List[tuple] = []
-    if any(item.isVisible() for item in r._fam_items.values()):
-        entries.append(("FAM", build_pen(r._style.fam_color, r._style.fam_pen)))
-    if any(item.isVisible() for item in r._hex_items.values()):
-        entries.append(("HEX", build_pen(r._style.hex_color, r._style.hex_pen)))
-    return entries

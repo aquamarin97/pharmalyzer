@@ -30,6 +30,10 @@ class PCRGraphStyle:
     # 1. Basit varsayılan değerleri en başa al
     fam_color: str = "#22C7A8"
     hex_color: str = "#F4A261"
+    overlay_color: str = "#D9534F"
+    overlay_hover_width: float = 2.5
+    overlay_preview_width: float = 2.0
+    overlay_roi_width: float = 1.0
     
     legend_frame_facecolor: str = COLOR_STYLES.PLOT_LEGEND_BG_HEX
     legend_frame_edgecolor: str = COLOR_STYLES.PLOT_GRID_HEX

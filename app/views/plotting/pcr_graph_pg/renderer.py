@@ -1,3 +1,4 @@
+# app\views\plotting\pcr_graph_pg\renderer.py
 # app\views\plotting\pcr_graph_pg\renderer_pg.py
 from __future__ import annotations
 
@@ -15,65 +16,14 @@ from app.services.interaction_store import InteractionStore
 from app.services.pcr_data_service import PCRCoords
 from app.utils import well_mapping
 
-from .geometry import build_spatial_index, nearest_well, wells_in_rect
-from .styles import InteractionStyleChange, StyleState, apply_interaction_styles, legend_entries, set_channel_visibility
+from .axes import apply_axis_ranges, apply_axes_style
+from .hit_test import nearest_well, wells_in_rect
+from .interactions import PCRGraphViewBox
+from .legend import refresh_legend
+from .spatial_index import build_spatial_index
+from .styles import InteractionStyleChange, StyleState, apply_interaction_styles, set_channel_visibility
 
 logger = logging.getLogger(__name__)
-
-
-class _PCRGraphViewBox(pg.ViewBox):
-    """
-    Custom ViewBox to own mouse interactions without triggering default panning/zooming.
-    """
-
-    def __init__(self, renderer: "PCRGraphRendererPG"):
-        super().__init__(enableMenu=False)
-        self._renderer = renderer
-        self.setMouseEnabled(x=False, y=False)
-        self.setAcceptHoverEvents(True)
-        self._drag_active = False
-
-    # Hover -> cross-highlighting
-    def hoverEvent(self, ev):
-        if self._drag_active or ev.isExit():
-            self._renderer.handle_hover(None)
-            return
-        pos = ev.pos()
-        if pos is None:
-            self._renderer.handle_hover(None)
-            return
-        view_pos = self.mapToView(pos)
-        self._renderer.handle_hover((view_pos.x(), view_pos.y()))
-
-    def mouseClickEvent(self, ev):
-        if ev.button() == QtCore.Qt.LeftButton:
-            view = self.mapSceneToView(ev.scenePos())
-            self._renderer.handle_click(
-                (view.x(), view.y()),
-                ctrl_pressed=bool(ev.modifiers() & QtCore.Qt.ControlModifier),
-            )
-            ev.accept()
-            return
-        super().mouseClickEvent(ev)
-
-    def mouseDragEvent(self, ev, axis=None):
-        if ev.button() != QtCore.Qt.LeftButton:
-            super().mouseDragEvent(ev, axis=axis)
-            return
-
-        self._drag_active = True
-        start = self.mapSceneToView(ev.buttonDownScenePos())
-        current = self.mapSceneToView(ev.scenePos())
-        self._renderer.handle_drag(
-            (start.x(), start.y()),
-            (current.x(), current.y()),
-            finished=ev.isFinish(),
-        )
-        ev.accept()
-        if ev.isFinish():
-            self._drag_active = False
-
-
 class PCRGraphRendererPG(pg.PlotWidget):
     """
     PyQtGraph-based PCR grafiği: yüksek FPS için optimize edildi.
@@ -83,7 +33,7 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._style = style or PCRGraphStyle()
         self._title = "PCR Grafik"
 
-        self._view_box = _PCRGraphViewBox(self)
+        self._view_box = PCRGraphViewBox(self)
         self._view_box.setDefaultPadding(0.0)
         plot_item = pg.PlotItem(viewBox=self._view_box)
         plot_item.setMenuEnabled(False)
@@ -97,8 +47,12 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._fam_items: Dict[str, pg.PlotDataItem] = {}
         self._hex_items: Dict[str, pg.PlotDataItem] = {}
         self._hover_well: Optional[str] = None
-        self._hover_overlay = self._build_overlay(pen=pg.mkPen("#D9534F", width=2.5))
-        self._preview_overlay = self._build_overlay(pen=pg.mkPen("#D9534F", width=2.0, style=QtCore.Qt.DashLine))
+        self._hover_overlay = self._build_overlay(
+            pen=pg.mkPen(self._style.overlay_color, width=self._style.overlay_hover_width)
+        )
+        self._preview_overlay = self._build_overlay(
+            pen=pg.mkPen(self._style.overlay_color, width=self._style.overlay_preview_width, style=QtCore.Qt.DashLine)
+        )
 
         self._fam_visible = True
         self._hex_visible = True
@@ -109,7 +63,12 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._rect_preview_wells: Set[str] = set()
         self._legend = pg.LegendItem(offset=(10, 10))
         self._legend.setParentItem(self._plot_item.graphicsItem())
-        self._rect_roi = pg.RectROI([0, 0], [0, 0], pen=pg.mkPen("#D9534F", width=1.0), movable=False)
+        self._rect_roi = pg.RectROI(
+            [0, 0],
+            [0, 0],
+            pen=pg.mkPen(self._style.overlay_color, width=self._style.overlay_roi_width),
+            movable=False,
+        )
         self._rect_roi.setZValue(50)
         self._rect_roi.setVisible(False)
         self._plot_item.addItem(self._rect_roi, ignoreBounds=True)
@@ -128,6 +87,7 @@ class PCRGraphRendererPG(pg.PlotWidget):
 
     # ---- lifecycle ----
     def reset(self) -> None:
+        # state
         self._fam_items.clear()
         self._hex_items.clear()
         self._rendered_wells.clear()
@@ -137,16 +97,32 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._style_state = None
         self._hover_well = None
         self._rect_preview_wells.clear()
-        self._plot_item.clear()
-        self._legend.clear()
+
+        # scene cleanup
+        try:
+            self._plot_item.clear()
+        except Exception:
+            pass
+
+        # legend & overlays
+        try:
+            self._legend.clear()
+        except Exception:
+            pass
+
         self._hover_overlay.clear()
         self._hover_overlay.setVisible(False)
         self._preview_overlay.clear()
         self._preview_overlay.setVisible(False)
+
+        # re-add fixed items
         self._plot_item.addItem(self._rect_roi, ignoreBounds=True)
         self._plot_item.addItem(self._hover_overlay)
         self._plot_item.addItem(self._preview_overlay)
+
+        # axes (this will re-add grid lines; see section B)
         self._setup_axes()
+
         if self._render_timer.isActive():
             self._render_timer.stop()
 
@@ -252,6 +228,9 @@ class PCRGraphRendererPG(pg.PlotWidget):
             self.set_hover(well)
 
     def handle_click(self, pos: tuple[float, float], *, ctrl_pressed: bool) -> None:
+        if self._store is None:
+            return
+
         x, y = pos
         tol_x, tol_y = self._pixel_tol_in_data()
         well = nearest_well(
@@ -264,12 +243,23 @@ class PCRGraphRendererPG(pg.PlotWidget):
             fam_visible=self._fam_visible,
             hex_visible=self._hex_visible,
         )
-        if well is None or self._store is None:
+
+        # ✅ Boş yere tıklandıysa: Ctrl değilse deselect (clear selection)
+        if well is None:
+            if not ctrl_pressed:
+                self._store.set_selection(set())
             return
+
         if ctrl_pressed:
             self._store.toggle_wells({well})
         else:
-            self._store.set_selection({well})
+            current = set(self._store.selected_wells)
+            # ✅ aynı tekli seçimi tekrar tıklayınca temizle
+            if len(current) == 1 and well in current:
+                self._store.set_selection(set())
+            else:
+                self._store.set_selection({well})
+
 
     def handle_drag(self, start: tuple[float, float], current: tuple[float, float], *, finished: bool) -> None:
         x0, y0 = start
@@ -300,21 +290,15 @@ class PCRGraphRendererPG(pg.PlotWidget):
 
     # ---- internal render helpers ----
     def _setup_axes(self) -> None:
-        s = self._style.axes
-        self.getAxis("bottom").setPen(pg.mkPen(s.tick_color, width=s.tick_width))
-        self.getAxis("left").setPen(pg.mkPen(s.tick_color, width=s.tick_width))
-        self.getAxis("bottom").setTextPen(pg.mkPen(s.label_color))
-        self.getAxis("left").setTextPen(pg.mkPen(s.label_color))
-        self._view_box.setBackgroundColor(s.ax_facecolor)
-        self.showGrid(x=True, y=True, alpha=0.55)
-        self._plot_item.addItem(pg.InfiniteLine(angle=0, pen=pg.mkPen(s.grid_color, width=1)))
-        self._plot_item.addItem(pg.InfiniteLine(angle=90, pen=pg.mkPen(s.grid_color, width=1)))
-        self._plot_item.getAxis("left").setStyle(tickTextOffset=3)
-        self._plot_item.getAxis("bottom").setStyle(tickTextOffset=3)
-        self._plot_item.setLabel("bottom", "Cycle", color=s.label_color)
-        self._plot_item.setLabel("left", "Fluorescence", color=s.label_color)
-        self._plot_item.setTitle(self._title, color=s.title_color)
-        self._apply_axis_ranges(xlim=s.default_xlim, ylim=s.default_ylim)
+        apply_axes_style(
+            self,
+            self._plot_item,
+            self._view_box,
+            self._style.axes,
+            self._title,
+            self._style.axes.default_xlim,
+            self._style.axes.default_ylim,
+        )
 
     def _build_overlay(self, pen: QtGui.QPen) -> pg.PlotDataItem:
         item = pg.PlotDataItem(pen=pen, connect="finite")
@@ -383,75 +367,18 @@ class PCRGraphRendererPG(pg.PlotWidget):
 
         self._refresh_axes_limits(fam_all, hex_all)
         self._refresh_legend()
-
     def _refresh_axes_limits(self, fam_coords: List[np.ndarray], hex_coords: List[np.ndarray]) -> None:
-            # 1. Dinamik Y limitini hesapla
-            ylim = PCRGraphLayoutService.compute_ylim_for_static_draw(
-                fam_coords=fam_coords,
-                hex_coords=hex_coords,
-                min_floor=4500.0,
-                y_padding=500.0,
-            )
-            target_ylim = ylim if ylim else self._style.axes.default_ylim
-            
-            # 2. Limitleri uygula
-            self._apply_axis_ranges(xlim=self._style.axes.default_xlim, ylim=target_ylim)
-            
-            
-    def _set_axis_ticks(self, *, xlim: tuple[float, float], ylim: tuple[float, float]) -> None:
-            bottom_axis = self._plot_item.getAxis("bottom")
-            left_axis = self._plot_item.getAxis("left")
-
-            # X ekseni (Cycle): Genellikle 40 döngü olduğu için 4'erli veya 5'erli tamsayı adımlar
-            x_range = xlim[1] - xlim[0]
-            x_step = max(1, round(x_range / 10)) 
-            
-            # Y ekseni (Fluorescence): 10'a böl ve en yakın 1000'in katına yuvarla
-            y_range = ylim[1] - ylim[0]
-            y_raw_step = y_range / 10
-            
-            if y_range > 5000:
-                # 5000'den büyükse 1000'in katlarına yuvarla (Örn: 1200 -> 1000, 1600 -> 2000)
-                y_step = max(1000, round(y_raw_step / 1000) * 1000)
-            elif y_range > 1000:
-                # Daha küçük aralıklarda 500'ün katları daha iyi sonuç verir
-                y_step = max(500, round(y_raw_step / 500) * 500)
-            else:
-                # Çok düşük sinyallerde 100'ün katları
-                y_step = max(100, round(y_raw_step / 100) * 100)
-
-            bottom_axis.setTicks([self._build_ticks(xlim, step=x_step)])
-            left_axis.setTicks([self._build_ticks(ylim, step=y_step)])
-            
-    def _build_ticks(self, axis_range: tuple[float, float], step: float) -> list[tuple[float, str]]:
-            start, end = axis_range
-            ticks: list[tuple[float, str]] = []
-            
-            current = float(start)
-            # Yüksek hassasiyetli karşılaştırma için küçük bir tolerans
-            eps = step * 0.01
-
-            while current < end - eps:
-                ticks.append((current, self._format_tick_value(current)))
-                current += step
-            
-            # Son değeri (Max) her zaman ekle
-            ticks.append((float(end), self._format_tick_value(end)))
-            
-            return ticks
-
-    @staticmethod
-    def _format_tick_value(value: float) -> str:
-        # 10'a bölünce küsurat çıkabilir, eğer sayı tamsa (örn: 40.0) tam sayı bas
-        # Değilse virgülden sonra 1 basamak bas (örn: 450.5)
-        if float(value).is_integer():
-            return str(int(value))
-        return f"{value:.1f}"    
+        ylim = PCRGraphLayoutService.compute_ylim_for_static_draw(
+            fam_coords=fam_coords,
+            hex_coords=hex_coords,
+            min_floor=4500.0,
+            y_padding=500.0,
+        )
+        target_ylim = ylim if ylim else self._style.axes.default_ylim
+        self._apply_axis_ranges(xlim=self._style.axes.default_xlim, ylim=target_ylim)            
+    
     def _refresh_legend(self) -> None:
-        self._legend.clear()
-        for name, pen in legend_entries(self):
-            sample = pg.PlotDataItem(pen=pen)
-            self._legend.addItem(sample, name)
+        refresh_legend(self, self._legend)
 
     def _rebuild_spatial_index(self) -> None:
         self._spatial_index = build_spatial_index(
@@ -553,51 +480,16 @@ class PCRGraphRendererPG(pg.PlotWidget):
         if self._render_timer.isActive():
             return
         self._render_timer.start(delay)
-
     def _flush_pending_render(self) -> None:
-            full = self._pending_full_draw
-            overlay = self._pending_overlay or full
-            self._pending_full_draw = False
-            self._pending_overlay = False
-            
-            if full or overlay:
-                self.update() # Veya self._plot_item.update()
-                
-            self._last_render_ts = perf_counter() 
-            
+        full = self._pending_full_draw
+        overlay = self._pending_overlay or full
+        self._pending_full_draw = False
+        self._pending_overlay = False
+
+        if full or overlay:
+            self.update()  # Veya self._plot_item.update()
+
+        self._last_render_ts = perf_counter()
+
     def _apply_axis_ranges(self, *, xlim: tuple[float, float], ylim: tuple[float, float]) -> None:
-        vb = self._plot_item.vb  # = self._view_box
-
-        # Auto-range'i kapat (ikisini de)
-        self._plot_item.enableAutoRange(x=False, y=False)
-        vb.disableAutoRange(axis=vb.XAxis)
-        vb.disableAutoRange(axis=vb.YAxis)
-
-        # Limitler (clamp) – önce limits, sonra range daha stabil
-        y_span = (ylim[1] - ylim[0]) if (ylim[1] - ylim[0]) else 1.0
-        self._plot_item.setLimits(
-            xMin=xlim[0],
-            xMax=xlim[1],
-            yMin=ylim[0] - y_span * 0.05,
-            yMax=ylim[1] * 1.1,
-        )
-
-        # Range'i DOĞRUDAN ViewBox'a uygula (asıl önemli nokta)
-        vb.setRange(
-            xRange=(xlim[0], xlim[1]),
-            yRange=(ylim[0], ylim[1]),
-            padding=0.0,          # padding'i burada 0 tut
-            update=True,
-            disableAutoRange=True
-        )
-
-        # Eğer hafif padding istiyorsan, setRange yerine yRange’i genişlet:
-        # pad = y_span * 0.03
-        # vb.setRange(yRange=(ylim[0], ylim[1] + pad), ...)
-
-        # Tick'ler (etiketler)
-        self._set_axis_ticks(xlim=xlim, ylim=ylim)
-
-        # KRİTİK: ViewBox transform/viewRange'i aynı frame'de kesin güncelle
-        vb.updateViewRange()
-        vb.updateMatrix()
+        apply_axis_ranges(self._plot_item, self._view_box, xlim=xlim, ylim=ylim)
