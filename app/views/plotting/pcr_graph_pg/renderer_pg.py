@@ -84,6 +84,7 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._title = "PCR Grafik"
 
         self._view_box = _PCRGraphViewBox(self)
+        self._view_box.setDefaultPadding(0.0)
         plot_item = pg.PlotItem(viewBox=self._view_box)
         plot_item.setMenuEnabled(False)
         plot_item.hideButtons()
@@ -304,10 +305,6 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self.getAxis("left").setTextPen(pg.mkPen(s.label_color))
         self._view_box.setBackgroundColor(s.ax_facecolor)
         self.showGrid(x=True, y=True, alpha=0.55)
-        self._plot_item.setLimits(xMin=s.default_xlim[0], xMax=s.default_xlim[1])
-        self._plot_item.setLimits(yMin=s.default_ylim[0], yMax=s.default_ylim[1])
-        self._plot_item.setXRange(*s.default_xlim, padding=0)
-        self._plot_item.setYRange(*s.default_ylim, padding=0)
         self._plot_item.addItem(pg.InfiniteLine(angle=0, pen=pg.mkPen(s.grid_color, width=1)))
         self._plot_item.addItem(pg.InfiniteLine(angle=90, pen=pg.mkPen(s.grid_color, width=1)))
         self._plot_item.getAxis("left").setStyle(tickTextOffset=3)
@@ -315,6 +312,7 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._plot_item.setLabel("bottom", "Cycle", color=s.label_color)
         self._plot_item.setLabel("left", "Fluorescence", color=s.label_color)
         self._plot_item.setTitle(self._title, color=s.title_color)
+        self._apply_axis_ranges(xlim=s.default_xlim, ylim=s.default_ylim)
 
     def _build_overlay(self, pen: QtGui.QPen) -> pg.PlotDataItem:
         item = pg.PlotDataItem(pen=pen, connect="finite")
@@ -385,21 +383,71 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._refresh_legend()
 
     def _refresh_axes_limits(self, fam_coords: List[np.ndarray], hex_coords: List[np.ndarray]) -> None:
-        ylim = PCRGraphLayoutService.compute_ylim_for_static_draw(
-            fam_coords=fam_coords,
-            hex_coords=hex_coords,
-            min_floor=4500.0,
-            y_padding=500.0,
-        )
-        y0, y1 = ylim if ylim else self._style.axes.default_ylim
-        self._plot_item.setYRange(y0, y1, padding=0)
-        self._plot_item.enableAutoRange(x=False, y=False)
-        self._plot_item.setXRange(0, 40, padding=0)
-        self._plot_item.setLimits(xMin=0, xMax=40)
+            # 1. Dinamik Y limitini hesapla
+            ylim = PCRGraphLayoutService.compute_ylim_for_static_draw(
+                fam_coords=fam_coords,
+                hex_coords=hex_coords,
+                min_floor=4500.0,
+                y_padding=500.0,
+            )
+            target_ylim = ylim if ylim else self._style.axes.default_ylim
+            
+            # 2. Limitleri uygula
+            self._apply_axis_ranges(xlim=self._style.axes.default_xlim, ylim=target_ylim)
+            
+            # BUG FIX: İlk çizimde ViewBox'ın eski limitlerde asılı kalmasını engellemek için
+            # ViewBox'a koordinatların güncellendiğini ve "auto-range" istemediğimizi açıkça bildiriyoruz.
+            self._view_box.sigStateChanged.emit(self._view_box)
+            
+    def _set_axis_ticks(self, *, xlim: tuple[float, float], ylim: tuple[float, float]) -> None:
+            bottom_axis = self._plot_item.getAxis("bottom")
+            left_axis = self._plot_item.getAxis("left")
 
-        axis = self._plot_item.getAxis("bottom")
-        axis.setTicks([[(i, str(i)) for i in range(0, 41, 5)]])
+            # X ekseni (Cycle): Genellikle 40 döngü olduğu için 4'erli veya 5'erli tamsayı adımlar
+            x_range = xlim[1] - xlim[0]
+            x_step = max(1, round(x_range / 10)) 
+            
+            # Y ekseni (Fluorescence): 10'a böl ve en yakın 1000'in katına yuvarla
+            y_range = ylim[1] - ylim[0]
+            y_raw_step = y_range / 10
+            
+            if y_range > 5000:
+                # 5000'den büyükse 1000'in katlarına yuvarla (Örn: 1200 -> 1000, 1600 -> 2000)
+                y_step = max(1000, round(y_raw_step / 1000) * 1000)
+            elif y_range > 1000:
+                # Daha küçük aralıklarda 500'ün katları daha iyi sonuç verir
+                y_step = max(500, round(y_raw_step / 500) * 500)
+            else:
+                # Çok düşük sinyallerde 100'ün katları
+                y_step = max(100, round(y_raw_step / 100) * 100)
 
+            bottom_axis.setTicks([self._build_ticks(xlim, step=x_step)])
+            left_axis.setTicks([self._build_ticks(ylim, step=y_step)])
+            
+    def _build_ticks(self, axis_range: tuple[float, float], step: float) -> list[tuple[float, str]]:
+            start, end = axis_range
+            ticks: list[tuple[float, str]] = []
+            
+            current = float(start)
+            # Yüksek hassasiyetli karşılaştırma için küçük bir tolerans
+            eps = step * 0.01
+
+            while current < end - eps:
+                ticks.append((current, self._format_tick_value(current)))
+                current += step
+            
+            # Son değeri (Max) her zaman ekle
+            ticks.append((float(end), self._format_tick_value(end)))
+            
+            return ticks
+
+    @staticmethod
+    def _format_tick_value(value: float) -> str:
+        # 10'a bölünce küsurat çıkabilir, eğer sayı tamsa (örn: 40.0) tam sayı bas
+        # Değilse virgülden sonra 1 basamak bas (örn: 450.5)
+        if float(value).is_integer():
+            return str(int(value))
+        return f"{value:.1f}"    
     def _refresh_legend(self) -> None:
         self._legend.clear()
         for name, pen in legend_entries(self):
@@ -507,4 +555,26 @@ class PCRGraphRendererPG(pg.PlotWidget):
             if full or overlay:
                 self.update() # Veya self._plot_item.update()
                 
-            self._last_render_ts = perf_counter()
+            self._last_render_ts = perf_counter() 
+            
+    def _apply_axis_ranges(self, *, xlim: tuple[float, float], ylim: tuple[float, float]) -> None:
+            # Otomatik ölçeklendirmeyi tamamen kapat
+            self._plot_item.enableAutoRange(x=False, y=False)
+            
+            # X Eksen: Kesinlikle padding yok (0,0 noktası için)
+            self._plot_item.setXRange(xlim[0], xlim[1], padding=0, update=True)
+            
+            # Y Eksen: Üstten ve alttan hafif boşluk, update=True zorunlu
+            self._plot_item.setYRange(ylim[0], ylim[1], padding=0.03, update=True)
+            
+            # Kullanıcının sınırların dışına çıkmasını engelle
+            # yMin'i biraz daha esnek bırakalım ki 0 etiketi rahat görünsün
+            self._plot_item.setLimits(
+                xMin=xlim[0], 
+                xMax=xlim[1], 
+                yMin=ylim[0] - (ylim[1]-ylim[0]) * 0.05, 
+                yMax=ylim[1] * 1.1
+            )
+            
+            # Tick'leri hesapla
+            self._set_axis_ticks(xlim=xlim, ylim=ylim)
