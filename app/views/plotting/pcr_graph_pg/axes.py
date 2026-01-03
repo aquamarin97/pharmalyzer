@@ -1,12 +1,8 @@
-# app\views\plotting\pcr_graph_pg\axes.py
 from __future__ import annotations
-
 from typing import List, Tuple
-
 import pyqtgraph as pg
-
+from PyQt5 import QtCore, QtGui
 from app.constants.pcr_graph_style import AxesStyle
-
 
 def apply_axes_style(
     plot_widget: pg.PlotWidget,
@@ -17,63 +13,78 @@ def apply_axes_style(
     xlim: Tuple[float, float],
     ylim: Tuple[float, float],
 ) -> None:
-    plot_widget.getAxis("bottom").setPen(pg.mkPen(style_axes.tick_color, width=style_axes.tick_width))
-    plot_widget.getAxis("left").setPen(pg.mkPen(style_axes.tick_color, width=style_axes.tick_width))
-    plot_widget.getAxis("bottom").setTextPen(pg.mkPen(style_axes.label_color))
-    plot_widget.getAxis("left").setTextPen(pg.mkPen(style_axes.label_color))
+    # --- 1. Eksen Kalemleri ve Sabitleme ---
+    bottom_axis = plot_widget.getAxis("bottom")
+    left_axis = plot_widget.getAxis("left")
+    
+    # Profesyonel Dokunuş: Y ekseni genişliğini sabitle (Grafiğin zıplamasını önler)
+    left_axis.setWidth(55) # 55px sabit genişlik (5 basamaklı sayılar için yeterli)
+    
+    for axis in [bottom_axis, left_axis]:
+        axis.setPen(pg.mkPen(style_axes.tick_color, width=style_axes.tick_width))
+        axis.setTextPen(pg.mkPen(style_axes.label_color))
+    
     view_box.setBackgroundColor(style_axes.ax_facecolor)
-    plot_widget.showGrid(x=True, y=True, alpha=0.55)
-    plot_item.addItem(pg.InfiniteLine(angle=0, pen=pg.mkPen(style_axes.grid_color, width=1)))
-    plot_item.addItem(pg.InfiniteLine(angle=90, pen=pg.mkPen(style_axes.grid_color, width=1)))
-    plot_item.getAxis("left").setStyle(tickTextOffset=3)
-    plot_item.getAxis("bottom").setStyle(tickTextOffset=3)
-    plot_item.setLabel("bottom", "Cycle", color=style_axes.label_color)
-    plot_item.setLabel("left", "Fluorescence", color=style_axes.label_color)
-    plot_item.setTitle(title, color=style_axes.title_color)
-    apply_axis_ranges(plot_item, view_box, xlim=xlim, ylim=ylim)
+    
+    # --- 2. Grid Yönetimi (Daha Az Baskın) ---
+    # Grid rengini arka plana yaklaştırıp alpha'yı düşürüyoruz
+    grid_pen = pg.mkPen(color=style_axes.grid_color, width=0.5)
+    plot_widget.showGrid(x=True, y=True, alpha=0.2) # Alpha çok düşük olmalı
+    
+    # Kesişim Çizgileri (0 noktaları yerine senin istediğin offsetli kesişim)
+    # Not: İstenirse InfiniteLine yerine eksen sınırları kullanılabilir
+    
+    # --- 3. Etiketler ve Başlık ---
+    plot_item.setLabel("bottom", "Cycle", units="", color=style_axes.label_color)
+    plot_item.setLabel("left", "Fluorescence", units="", color=style_axes.label_color)
+    plot_item.setTitle(title, color=style_axes.title_color, size="12pt")
+    
+    # --- 4. Padding ve Aralık ---
+    # Eksen etiketlerinin grafiğe çok yaklaşmasını önle
+    left_axis.setStyle(tickTextOffset=10)
+    bottom_axis.setStyle(tickTextOffset=8)
 
+    apply_axis_ranges(plot_item, view_box, xlim=xlim, ylim=ylim)
 
 def set_axis_ticks(plot_item: pg.PlotItem, xlim: Tuple[float, float], ylim: Tuple[float, float]) -> None:
     bottom_axis = plot_item.getAxis("bottom")
     left_axis = plot_item.getAxis("left")
 
-    x_range = xlim[1] - xlim[0]
-    x_step = max(1, round(x_range / 10))
-
+    # X adımları (Cycle genelde 1-40 arasıdır)
+    x_step = 5 if (xlim[1] - xlim[0]) > 20 else 2
+    
+    # Y adımları (Daha yuvarlak sayılar)
     y_range = ylim[1] - ylim[0]
-    y_raw_step = y_range / 10
+    if y_range > 15000: y_step = 5000
+    elif y_range > 5000: y_step = 2000
+    else: y_step = 1000
 
-    if y_range > 5000:
-        y_step = max(1000, round(y_raw_step / 1000) * 1000)
-    elif y_range > 1000:
-        y_step = max(500, round(y_raw_step / 500) * 500)
-    else:
-        y_step = max(100, round(y_raw_step / 100) * 100)
+    # Ticks oluştur ve uygula
+    bottom_axis.setTicks([build_ticks(xlim, step=x_step, force_end=True)])
+    left_axis.setTicks([build_ticks(ylim, step=y_step, force_end=True)])
 
-    bottom_axis.setTicks([build_ticks(xlim, step=x_step)])
-    left_axis.setTicks([build_ticks(ylim, step=y_step)])
-
-
-def build_ticks(axis_range: Tuple[float, float], step: float) -> List[tuple[float, str]]:
+def build_ticks(axis_range: Tuple[float, float], step: float, force_end: bool = False) -> List[tuple[float, str]]:
     start, end = axis_range
     ticks: List[tuple[float, str]] = []
-
-    current = float(start)
-    eps = step * 0.01
-
-    while current < end - eps:
+    
+    # Belirlediğin adıma göre tickleri oluştur
+    current = start
+    while current <= end:
         ticks.append((current, format_tick_value(current)))
         current += step
-
-    ticks.append((float(end), format_tick_value(end)))
+    
+    # Uç nokta değeri listede yoksa zorla ekle (İsteğin 2)
+    if force_end and (not ticks or ticks[-1][0] < end):
+        ticks.append((end, format_tick_value(end)))
+        
     return ticks
 
-
 def format_tick_value(value: float) -> str:
-    if float(value).is_integer():
-        return str(int(value))
-    return f"{value:.1f}"
-
+    # 10.000 üzerini "10k" olarak veya bilimsel formatta yazabiliriz 
+    # Ama netlik için tam sayı döndürmek PCR'da daha iyidir
+    if abs(value) >= 1000:
+        return f"{int(value)}"
+    return f"{value:.0f}"
 
 def apply_axis_ranges(
     plot_item: pg.PlotItem,
@@ -82,26 +93,25 @@ def apply_axis_ranges(
     xlim: Tuple[float, float],
     ylim: Tuple[float, float],
 ) -> None:
+    # İsteğin 3: Y ekseni -500'den başlasın
+    custom_ymin = -500.0
+    custom_xmin = 0.0 # Cycle genelde 0'dan başlar
+    
     plot_item.enableAutoRange(x=False, y=False)
-    view_box.disableAutoRange(axis=view_box.XAxis)
-    view_box.disableAutoRange(axis=view_box.YAxis)
-
-    y_span = (ylim[1] - ylim[0]) if (ylim[1] - ylim[0]) else 1.0
+    
+    # Limitleri belirle (Gereksiz kaydırmayı önlemek için)
     plot_item.setLimits(
-        xMin=xlim[0],
-        xMax=xlim[1],
-        yMin=ylim[0] - y_span * 0.05,
-        yMax=ylim[1] * 1.1,
+        xMin=custom_xmin, 
+        xMax=xlim[1] * 1.05, 
+        yMin=custom_ymin, 
+        yMax=ylim[1] * 1.2
     )
 
+    # Range uygula
     view_box.setRange(
-        xRange=(xlim[0], xlim[1]),
-        yRange=(ylim[0], ylim[1]),
-        padding=0.0,
-        update=True,
-        disableAutoRange=True,
+        xRange=(custom_xmin, xlim[1]),
+        yRange=(custom_ymin, ylim[1]),
+        padding=0.0
     )
 
-    set_axis_ticks(plot_item, xlim=xlim, ylim=ylim)
-    view_box.updateViewRange()
-    view_box.updateMatrix()
+    set_axis_ticks(plot_item, (custom_xmin, xlim[1]), (custom_ymin, ylim[1]))
