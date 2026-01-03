@@ -7,7 +7,7 @@ from typing import Optional, Set
 from app.services.interaction_store import InteractionStore
 from app.services.pcr_data_service import PCRDataService
 from app.utils import well_mapping
-from app.views.plotting.pcr_graph_pg.renderer_pg import PCRGraphRendererPG
+from app.views.plotting.pcr_graph_pg.renderer import PCRGraphRendererPG
 logger = logging.getLogger(__name__)
 
 

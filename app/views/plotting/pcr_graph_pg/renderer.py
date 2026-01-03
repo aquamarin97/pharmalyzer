@@ -15,8 +15,8 @@ from app.services.interaction_store import InteractionStore
 from app.services.pcr_data_service import PCRCoords
 from app.utils import well_mapping
 
-from .geometry_pg import build_spatial_index, nearest_well, wells_in_rect
-from .styles_pg import InteractionStyleChange, StyleState, apply_interaction_styles, legend_entries, set_channel_visibility
+from .geometry import build_spatial_index, nearest_well, wells_in_rect
+from .styles import InteractionStyleChange, StyleState, apply_interaction_styles, legend_entries, set_channel_visibility
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +171,8 @@ class PCRGraphRendererPG(pg.PlotWidget):
             self._update_overlays(change)
             self._schedule_render(full=change.base_dirty, overlay=change.overlay_dirty or change.base_dirty)
             return
+        plot_was_empty = not self._fam_items and not self._hex_items
+
 
         self._style_state = None
         self._rendered_wells = incoming_wells
@@ -179,7 +181,7 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._rebuild_spatial_index()
         change = self._apply_interaction_styles(hovered=self._hover_well, selected=selected, preview=preview)
         self._update_overlays(change)
-        self._schedule_render(full=True, overlay=True)
+        self._schedule_render(full=True, overlay=True, force_flush=plot_was_empty)
 
     def set_hover(self, well: Optional[str]) -> None:
         normalized = well if well_mapping.is_valid_well_id(well) else None
@@ -395,9 +397,6 @@ class PCRGraphRendererPG(pg.PlotWidget):
             # 2. Limitleri uygula
             self._apply_axis_ranges(xlim=self._style.axes.default_xlim, ylim=target_ylim)
             
-            # BUG FIX: İlk çizimde ViewBox'ın eski limitlerde asılı kalmasını engellemek için
-            # ViewBox'a koordinatların güncellendiğini ve "auto-range" istemediğimizi açıkça bildiriyoruz.
-            self._view_box.sigStateChanged.emit(self._view_box)
             
     def _set_axis_ticks(self, *, xlim: tuple[float, float], ylim: tuple[float, float]) -> None:
             bottom_axis = self._plot_item.getAxis("bottom")
@@ -537,9 +536,18 @@ class PCRGraphRendererPG(pg.PlotWidget):
         return abs(pixel[0] * 6), abs(pixel[1] * 6)
 
     # ---- render scheduling ----
-    def _schedule_render(self, *, full: bool = False, overlay: bool = False) -> None:
+    def _schedule_render(self, *, full: bool = False, overlay: bool = False, force_flush: bool = False) -> None:
         self._pending_full_draw = self._pending_full_draw or full
         self._pending_overlay = self._pending_overlay or overlay
+
+
+        if force_flush:
+            if self._render_timer.isActive():
+                self._render_timer.stop()
+            self._flush_pending_render()
+            return
+
+
         elapsed_ms = (perf_counter() - self._last_render_ts) * 1000.0
         delay = max(0, int(self._frame_interval_ms - elapsed_ms))
         if self._render_timer.isActive():
@@ -558,23 +566,38 @@ class PCRGraphRendererPG(pg.PlotWidget):
             self._last_render_ts = perf_counter() 
             
     def _apply_axis_ranges(self, *, xlim: tuple[float, float], ylim: tuple[float, float]) -> None:
-            # Otomatik ölçeklendirmeyi tamamen kapat
-            self._plot_item.enableAutoRange(x=False, y=False)
-            
-            # X Eksen: Kesinlikle padding yok (0,0 noktası için)
-            self._plot_item.setXRange(xlim[0], xlim[1], padding=0, update=True)
-            
-            # Y Eksen: Üstten ve alttan hafif boşluk, update=True zorunlu
-            self._plot_item.setYRange(ylim[0], ylim[1], padding=0.03, update=True)
-            
-            # Kullanıcının sınırların dışına çıkmasını engelle
-            # yMin'i biraz daha esnek bırakalım ki 0 etiketi rahat görünsün
-            self._plot_item.setLimits(
-                xMin=xlim[0], 
-                xMax=xlim[1], 
-                yMin=ylim[0] - (ylim[1]-ylim[0]) * 0.05, 
-                yMax=ylim[1] * 1.1
-            )
-            
-            # Tick'leri hesapla
-            self._set_axis_ticks(xlim=xlim, ylim=ylim)
+        vb = self._plot_item.vb  # = self._view_box
+
+        # Auto-range'i kapat (ikisini de)
+        self._plot_item.enableAutoRange(x=False, y=False)
+        vb.disableAutoRange(axis=vb.XAxis)
+        vb.disableAutoRange(axis=vb.YAxis)
+
+        # Limitler (clamp) – önce limits, sonra range daha stabil
+        y_span = (ylim[1] - ylim[0]) if (ylim[1] - ylim[0]) else 1.0
+        self._plot_item.setLimits(
+            xMin=xlim[0],
+            xMax=xlim[1],
+            yMin=ylim[0] - y_span * 0.05,
+            yMax=ylim[1] * 1.1,
+        )
+
+        # Range'i DOĞRUDAN ViewBox'a uygula (asıl önemli nokta)
+        vb.setRange(
+            xRange=(xlim[0], xlim[1]),
+            yRange=(ylim[0], ylim[1]),
+            padding=0.0,          # padding'i burada 0 tut
+            update=True,
+            disableAutoRange=True
+        )
+
+        # Eğer hafif padding istiyorsan, setRange yerine yRange’i genişlet:
+        # pad = y_span * 0.03
+        # vb.setRange(yRange=(ylim[0], ylim[1] + pad), ...)
+
+        # Tick'ler (etiketler)
+        self._set_axis_ticks(xlim=xlim, ylim=ylim)
+
+        # KRİTİK: ViewBox transform/viewRange'i aynı frame'de kesin güncelle
+        vb.updateViewRange()
+        vb.updateMatrix()
