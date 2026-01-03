@@ -2,10 +2,13 @@ pharmalyzer/
 ├── app
 │   ├── bootstrap
 │   │   ├── resources.py
-│   │   └── splash.py
+│   │   ├── splash.py
+│   │   └── warmup.py
 │   ├── common
 │   │   └── widgets
 │   │       └── dialogs.py
+│   ├── config
+│   │   └── settings.py
 │   ├── constants
 │   │   ├── app_styles.py
 │   │   ├── app_text_key.py
@@ -24,10 +27,7 @@ pharmalyzer/
 │   │   │   └── graph_controller.py
 │   │   ├── interaction
 │   │   │   └── interaction_controller.py
-│   │   ├── pcr_plate
 │   │   ├── table
-│   │   │   ├── highlight_sync.py
-│   │   │   ├── selection_sync.py
 │   │   │   ├── table_controller.py
 │   │   │   └── table_interaction_controller.py
 │   │   ├── well
@@ -89,20 +89,18 @@ pharmalyzer/
 │   │   └── well_mapping.py
 │   └── views
 │       ├── plotting
-│       │   ├── pcr_graph
+│       │   ├── pcr_graph_pg
 │       │   │   ├── axes.py
-│       │   │   ├── drawing.py
 │       │   │   ├── hit_test.py
 │       │   │   ├── interactions.py
+│       │   │   ├── legend.py
 │       │   │   ├── renderer.py
-│       │   │   ├── selection.py
-│       │   │   └── styles.py
+│       │   │   ├── spatial_index.py
+│       │   │   ├── styles.py
+│       │   │   └── view.py
 │       │   ├── regression
 │       │   │   ├── adapters.py
-│       │   │   ├── annotations.py
-│       │   │   ├── handles.py
 │       │   │   ├── interaction.py
-│       │   │   ├── legends.py
 │       │   │   ├── renderer.py
 │       │   │   └── styles.py
 │       │   └── pyqtgraph_regression_renderer.py
@@ -133,11 +131,13 @@ pharmalyzer/
 │       │   └── regression_graph_view.py
 │       └── main_view.py
 ├── assets
+│   ├── a.txt
 │   ├── appicon.ico
 │   ├── appicon.png
 │   └── pharmalinelogo.svg
-├── config
-│   └── a.txt
+├── data
+│   ├── cache
+│   └── user
 ├── deployments
 │   └── a.txt
 ├── docs
@@ -145,14 +145,27 @@ pharmalyzer/
 ├── helper
 │   └── tapphelper.py
 ├── logs
+│   ├── 3_küme.txt
+│   ├── 5_küme.txt
 │   └── pharmalizer.log
 ├── resources
 │   └── a.txt
 ├── scripts
 │   └── a.txt
 ├── tests
+│   ├── test_pcr_graph_pg_geometry.py
+│   └── test_well_mapping.py
 ├── .gitignore
+├── 1.txt
+├── 15.01.2025_SMA_6871 plate_1.rdml
+├── 24.12.2025-SMA-BONCUK 1 pureprep96 protokol -1.rdml
+├── 26.12.2025-sma-xdp_ile_izole_2.rdml
+├── 26.12.2025-sma-xdp_ile_izole_2.xml
+├── 5952RUN(İZOTKR)_2024-10-22 16-58-06_CT060754.rdml
+├── dev_error_playground.py
+├── final_design_v3_3.ui
 ├── git_commends.txt
 ├── main.py
 ├── main_helper.py
-└── requirements.txt
+├── requirements.txt
+└── önerilen_folder.txt

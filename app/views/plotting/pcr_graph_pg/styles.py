@@ -1,5 +1,4 @@
 # app\views\plotting\pcr_graph_pg\styles.py
-# app\views\plotting\pcr_graph_pg\styles_pg.py
 
 from __future__ import annotations
 
@@ -8,7 +7,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import numpy as np
 import pyqtgraph as pg
-from PyQt5 import QtGui
+from PyQt5 import QtGui, QtCore
 
 PenKey = Tuple[str, float, float, bool]
 
@@ -31,18 +30,18 @@ class StyleState:
     initialized: bool = False
 
 
-def build_pen(color: str, base_pen: Dict[str, float | str], *, selected: bool = False) -> QtGui.QPen:
-    alpha = float(base_pen.get("alpha", 1.0))
-    width = float(base_pen.get("linewidth", 1.5))
-    key: PenKey = (color, width, alpha, selected)
-    cached = _PEN_CACHE.get(key)
-    if cached is not None:
-        return cached
+def build_pen(color: str, width: float, alpha: float) -> QtGui.QPen:
+    key = (color, width, alpha)
+    if key in _PEN_CACHE:
+        return _PEN_CACHE[key]
 
     color_obj = QtGui.QColor(color)
-    color_obj.setAlphaF(1.0 if selected else alpha)
-    pen = pg.mkPen(color=color_obj, width=width + (0.6 if selected else 0.0))
+    color_obj.setAlphaF(alpha)
+    # Hint: Cosmetice True yaparak zoom yapsan da çizgi kalınlığının sabit kalmasını sağlıyoruz
+    pen = pg.mkPen(color=color_obj, width=width)
     pen.setCosmetic(True)
+    pen.setCapStyle(QtCore.Qt.RoundCap)
+    pen.setJoinStyle(QtCore.Qt.RoundJoin)
     _PEN_CACHE[key] = pen
     return pen
 
@@ -87,22 +86,40 @@ def _update_selection_styles(r, selected: Set[str], state: StyleState) -> tuple[
         _style_well(r, well, selected)
     return True, changed
 
-
 def _style_well(r, well: str, selected: Set[str]) -> None:
     is_selected = well in selected
-    fam_item = r._fam_items.get(well)
-    hex_item = r._hex_items.get(well)
+    any_selection = len(selected) > 0
+    
+    # Dinamik Opaklık Mantığı (Profesyonel dokunuş)
+    # Eğer bir seçim varsa ve bu kuyucuk o seçimde değilse 'dim' (karartma) uygula
+    if any_selection and not is_selected:
+        target_alpha = r._style.inactive_alpha  # %15 opaklık
+        target_width = r._style.base_width
+        z_value = 1  # En alt katman
+    elif is_selected:
+        target_alpha = 1.0  # %100 görünürlük
+        target_width = r._style.selected_width
+        z_value = 100 # En üst katman
+    else:
+        # Hiçbir seçim yoksa herkes eşit ve orta görünürlükte
+        target_alpha = 0.8
+        target_width = r._style.base_width
+        z_value = 10
 
-    if fam_item is not None:
-        fam_item.setPen(build_pen(r._style.fam_color, r._style.fam_pen, selected=is_selected))
-        fam_item.setZValue(10 if is_selected else 1)
+    # FAM Uygulaması
+    fam_item = r._fam_items.get(well)
+    if fam_item:
+        pen = build_pen(r._style.fam_color, target_width, target_alpha)
+        fam_item.setPen(pen)
+        fam_item.setZValue(z_value)
         fam_item.setVisible(r._fam_visible and bool(fam_item.property("has_data")))
 
-    if hex_item is not None:
-        hex_item.setPen(build_pen(r._style.hex_color, r._style.hex_pen, selected=is_selected))
-        hex_item.setZValue(10 if is_selected else 1)
-        hex_item.setVisible(r._hex_visible and bool(hex_item.property("has_data")))
-
+    # HEX Uygulaması
+    hex_item = r._hex_items.get(well)
+    if hex_item:
+        pen = build_pen(r._style.hex_color, target_width, target_alpha)
+        hex_item.setPen(pen)
+        hex_item.setZValue(z_value)
 
 def _build_segments_for_wells(r, wells: Iterable[str]) -> List[np.ndarray]:
     segments: List[np.ndarray] = []

@@ -27,11 +27,18 @@ class AxesStyle:
 
 @dataclass(frozen=True)
 class PCRGraphStyle:
-    # 1. Basit varsayılan değerleri en başa al
-    fam_color: str = "#22C7A8"
-    hex_color: str = "#F4A261"
-    overlay_color: str = "#D9534F"
-    overlay_hover_width: float = 2.5
+# Profesyonel Medikal Palet (Daha az 'neon', daha çok 'vurgu')
+    fam_color: str = "#00F2C3"       # Canlı Turkuaz/Yeşil (Gözün en hassas olduğu renk)
+    hex_color: str = "#FFB03B"       # Amber/Altın (FAM ile kontrastı yüksek)
+    
+    # Etkileşim Renkleri
+    overlay_color: str = "#FFFFFF"   # Hover/Seçim çerçevesi saf beyaz veya parlak olmalı
+    inactive_alpha: float = 0.15      # Seçili olmayanlar arkada 'hayalet' gibi kalmalı
+    
+    # Kalınlık Standartları (Retina/High-DPI uyumlu)
+    base_width: float = 1.2          # Normal durum
+    selected_width: float = 2.5      # Seçili durum (Belirgin fark)
+    overlay_hover_width: float = 3.0 # Hover etkisi en üstte ve en kalın
     overlay_preview_width: float = 2.0
     overlay_roi_width: float = 1.0
     
