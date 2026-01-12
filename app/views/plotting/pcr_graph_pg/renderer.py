@@ -1,5 +1,4 @@
-# app\views\plotting\pcr_graph_pg\renderer.py
-# app\views\plotting\pcr_graph_pg\renderer_pg.py
+# app/views/plotting/pcr_graph_pg/renderer.py
 from __future__ import annotations
 
 import logging
@@ -23,7 +22,21 @@ from .legend import refresh_legend
 from .spatial_index import build_spatial_index
 from .styles import InteractionStyleChange, StyleState, apply_interaction_styles, set_channel_visibility
 
+from .items_pg import update_items, refresh_legend_pg, rebuild_spatial_index
+from .overlays_pg import build_overlay, make_hover_pen, make_preview_pen, update_overlays
+from .interaction_handlers_pg import (
+    handle_hover as handle_hover_impl,
+    handle_click as handle_click_impl,
+    handle_drag as handle_drag_impl,
+    on_store_preview_changed as on_store_preview_changed_impl,
+    collect_preview_wells as collect_preview_wells_impl,
+)
+from .render_scheduler_pg import schedule_render as schedule_render_impl, flush_pending_render as flush_pending_render_impl
+
+
 logger = logging.getLogger(__name__)
+
+
 class PCRGraphRendererPG(pg.PlotWidget):
     """
     PyQtGraph-based PCR grafiği: yüksek FPS için optimize edildi.
@@ -47,12 +60,10 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._fam_items: Dict[str, pg.PlotDataItem] = {}
         self._hex_items: Dict[str, pg.PlotDataItem] = {}
         self._hover_well: Optional[str] = None
-        self._hover_overlay = self._build_overlay(
-            pen=pg.mkPen(self._style.overlay_color, width=self._style.overlay_hover_width)
-        )
-        self._preview_overlay = self._build_overlay(
-            pen=pg.mkPen(self._style.overlay_color, width=self._style.overlay_preview_width, style=QtCore.Qt.DashLine)
-        )
+
+        # overlays
+        self._hover_overlay = build_overlay(pen=make_hover_pen(self))
+        self._preview_overlay = build_overlay(pen=make_preview_pen(self))
 
         self._fam_visible = True
         self._hex_visible = True
@@ -61,6 +72,8 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._well_geoms: Dict[str, Dict[str, np.ndarray]] = {}
         self._spatial_index = None
         self._rect_preview_wells: Set[str] = set()
+
+        # legend + ROI
         self._legend = pg.LegendItem(offset=(10, 10))
         self._legend.setParentItem(self._plot_item.graphicsItem())
         self._rect_roi = pg.RectROI(
@@ -73,6 +86,7 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._rect_roi.setVisible(False)
         self._plot_item.addItem(self._rect_roi, ignoreBounds=True)
 
+        # render scheduling
         self._render_timer = QtCore.QTimer(self)
         self._render_timer.setSingleShot(True)
         self._render_timer.timeout.connect(self._flush_pending_render)
@@ -120,7 +134,7 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._plot_item.addItem(self._hover_overlay)
         self._plot_item.addItem(self._preview_overlay)
 
-        # axes (this will re-add grid lines; see section B)
+        # axes
         self._setup_axes()
 
         if self._render_timer.isActive():
@@ -147,14 +161,16 @@ class PCRGraphRendererPG(pg.PlotWidget):
             self._update_overlays(change)
             self._schedule_render(full=change.base_dirty, overlay=change.overlay_dirty or change.base_dirty)
             return
-        plot_was_empty = not self._fam_items and not self._hex_items
 
+        plot_was_empty = not self._fam_items and not self._hex_items
 
         self._style_state = None
         self._rendered_wells = incoming_wells
         self._data_cache_token = token
-        self._update_items(data)
-        self._rebuild_spatial_index()
+
+        update_items(self, data)
+        rebuild_spatial_index(self)
+
         change = self._apply_interaction_styles(hovered=self._hover_well, selected=selected, preview=preview)
         self._update_overlays(change)
         self._schedule_render(full=True, overlay=True, force_flush=plot_was_empty)
@@ -164,6 +180,7 @@ class PCRGraphRendererPG(pg.PlotWidget):
         if normalized == self._hover_well:
             return
         self._hover_well = normalized
+
         change = self._apply_interaction_styles(
             hovered=self._hover_well,
             selected=set(self._store.selected_wells) if self._store else set(),
@@ -178,6 +195,7 @@ class PCRGraphRendererPG(pg.PlotWidget):
                 self._store.previewChanged.disconnect(self._preview_slot)  # type: ignore[attr-defined]
             except Exception:
                 pass
+
         self._store = store
         if self._store is not None:
             self._preview_slot = lambda wells: self._on_store_preview_changed(wells)  # type: ignore[attr-defined]
@@ -187,8 +205,10 @@ class PCRGraphRendererPG(pg.PlotWidget):
         visibility_changed = set_channel_visibility(self, fam_visible, hex_visible)
         if not visibility_changed:
             return
-        self._refresh_legend()
-        self._rebuild_spatial_index()
+
+        refresh_legend_pg(self)
+        rebuild_spatial_index(self)
+
         change = self._apply_interaction_styles(
             hovered=self._hover_well,
             selected=set(self._store.selected_wells) if self._store else set(),
@@ -203,90 +223,13 @@ class PCRGraphRendererPG(pg.PlotWidget):
 
     # ---- interaction helpers invoked by ViewBox ----
     def handle_hover(self, pos: Optional[tuple[float, float]]) -> None:
-        if pos is None:
-            if self._store is not None:
-                self._store.set_hover(None)
-            else:
-                self.set_hover(None)
-            return
-
-        x, y = pos
-        tol_x, tol_y = self._pixel_tol_in_data()
-        well = nearest_well(
-            self._spatial_index,
-            self._well_geoms,
-            x,
-            y,
-            tol_x,
-            tol_y,
-            fam_visible=self._fam_visible,
-            hex_visible=self._hex_visible,
-        )
-        if self._store is not None:
-            self._store.set_hover(well)
-        else:
-            self.set_hover(well)
+        return handle_hover_impl(self, pos)
 
     def handle_click(self, pos: tuple[float, float], *, ctrl_pressed: bool) -> None:
-        if self._store is None:
-            return
-
-        x, y = pos
-        tol_x, tol_y = self._pixel_tol_in_data()
-        well = nearest_well(
-            self._spatial_index,
-            self._well_geoms,
-            x,
-            y,
-            tol_x,
-            tol_y,
-            fam_visible=self._fam_visible,
-            hex_visible=self._hex_visible,
-        )
-
-        # ✅ Boş yere tıklandıysa: Ctrl değilse deselect (clear selection)
-        if well is None:
-            if not ctrl_pressed:
-                self._store.set_selection(set())
-            return
-
-        if ctrl_pressed:
-            self._store.toggle_wells({well})
-        else:
-            current = set(self._store.selected_wells)
-            # ✅ aynı tekli seçimi tekrar tıklayınca temizle
-            if len(current) == 1 and well in current:
-                self._store.set_selection(set())
-            else:
-                self._store.set_selection({well})
-
+        return handle_click_impl(self, pos, ctrl_pressed=ctrl_pressed)
 
     def handle_drag(self, start: tuple[float, float], current: tuple[float, float], *, finished: bool) -> None:
-        x0, y0 = start
-        x1, y1 = current
-        rect_x, rect_y = min(x0, x1), min(y0, y1)
-        w, h = abs(x1 - x0), abs(y1 - y0)
-        self._rect_roi.setPos((rect_x, rect_y))
-        self._rect_roi.setSize((w, h))
-        self._rect_roi.setVisible(not finished)
-
-        if finished:
-            self._set_rect_preview(set())
-            self._schedule_render(full=False, overlay=True)
-            return
-
-        wells = wells_in_rect(
-            self._spatial_index,
-            self._well_geoms,
-            x0,
-            x1,
-            y0,
-            y1,
-            fam_visible=self._fam_visible,
-            hex_visible=self._hex_visible,
-        )
-        self._set_rect_preview(wells)
-        self._schedule_render(full=False, overlay=True)
+        return handle_drag_impl(self, start, current, finished=finished)
 
     # ---- internal render helpers ----
     def _setup_axes(self) -> None:
@@ -300,196 +243,24 @@ class PCRGraphRendererPG(pg.PlotWidget):
             self._style.axes.default_ylim,
         )
 
-    def _build_overlay(self, pen: QtGui.QPen) -> pg.PlotDataItem:
-        item = pg.PlotDataItem(pen=pen, connect="finite")
-        item.setZValue(30)
-        item.setVisible(False)
-        return item
-
-    def _update_items(self, data: Dict[str, PCRCoords]) -> None:
-        # remove missing wells
-        for well in list(self._fam_items.keys()):
-            if well not in data:
-                self._plot_item.removeItem(self._fam_items.pop(well))
-                self._well_geoms.pop(well, None)
-        for well in list(self._hex_items.keys()):
-            if well not in data:
-                self._plot_item.removeItem(self._hex_items.pop(well))
-                self._well_geoms.pop(well, None)
-
-        wells_sorted = sorted(data.keys(), key=lambda w: well_mapping.well_id_to_patient_no(w))
-        fam_all: List[np.ndarray] = []
-        hex_all: List[np.ndarray] = []
-
-        for well in wells_sorted:
-            coords = data.get(well)
-            if coords is None:
-                continue
-
-            fam_coords = coords.fam
-            hex_coords = coords.hex
-            fam_has_data = fam_coords.size > 0
-            hex_has_data = hex_coords.size > 0
-            self._well_geoms[well] = {
-                "fam": fam_coords if fam_has_data else np.empty((0, 2), dtype=float),
-                "hex": hex_coords if hex_has_data else np.empty((0, 2), dtype=float),
-            }
-
-            if fam_has_data:
-                fam_all.append(fam_coords)
-                fam_item = self._fam_items.get(well)
-                if fam_item is None:
-                    fam_item = pg.PlotDataItem(connect="finite", name="FAM")
-                    self._plot_item.addItem(fam_item)
-                    self._fam_items[well] = fam_item
-                fam_item.setData(fam_coords[:, 0], fam_coords[:, 1])
-                fam_item.setVisible(self._fam_visible)
-                fam_item.setProperty("has_data", True)
-            else:
-                if well in self._fam_items:
-                    self._fam_items[well].setData([], [])
-                    self._fam_items[well].setProperty("has_data", False)
-
-            if hex_has_data:
-                hex_all.append(hex_coords)
-                hex_item = self._hex_items.get(well)
-                if hex_item is None:
-                    hex_item = pg.PlotDataItem(connect="finite", name="HEX")
-                    self._plot_item.addItem(hex_item)
-                    self._hex_items[well] = hex_item
-                hex_item.setData(hex_coords[:, 0], hex_coords[:, 1])
-                hex_item.setVisible(self._hex_visible)
-                hex_item.setProperty("has_data", True)
-            else:
-                if well in self._hex_items:
-                    self._hex_items[well].setData([], [])
-                    self._hex_items[well].setProperty("has_data", False)
-
-        self._refresh_axes_limits(fam_all, hex_all)
-        self._refresh_legend()
-    def _refresh_axes_limits(self, fam_coords: List[np.ndarray], hex_coords: List[np.ndarray]) -> None:
-        ylim = PCRGraphLayoutService.compute_ylim_for_static_draw(
-            fam_coords=fam_coords,
-            hex_coords=hex_coords,
-            min_floor=4500.0,
-            y_padding=500.0,
-        )
-        target_ylim = ylim if ylim else self._style.axes.default_ylim
-        self._apply_axis_ranges(xlim=self._style.axes.default_xlim, ylim=target_ylim)            
-    
-    def _refresh_legend(self) -> None:
-        refresh_legend(self, self._legend)
-
-    def _rebuild_spatial_index(self) -> None:
-        self._spatial_index = build_spatial_index(
-            self._well_geoms,
-            fam_visible=self._fam_visible,
-            hex_visible=self._hex_visible,
-        )
-
-    def _apply_interaction_styles(self, hovered: Optional[str], selected: Set[str], preview: Set[str]) -> InteractionStyleChange:
-        change = apply_interaction_styles(self, hovered=hovered, selected=selected, preview=preview)
-        return change
-
-    def _segments_to_xy_with_nans(self, segments: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
-        if not segments:
-            return np.array([]), np.array([])
-
-        xs_list = []
-        ys_list = []
-        for seg in segments:
-            if seg is None or seg.size == 0:
-                continue
-            # seg shape (N,2) varsayımı
-            xs_list.append(seg[:, 0])
-            ys_list.append(seg[:, 1])
-            # segment kırıcı
-            xs_list.append(np.array([np.nan]))
-            ys_list.append(np.array([np.nan]))
-
-        if not xs_list:
-            return np.array([]), np.array([])
-        return np.concatenate(xs_list), np.concatenate(ys_list)
-
     def _update_overlays(self, change):
-        if change.hover_segments:
-            xs, ys = self._segments_to_xy_with_nans(change.hover_segments)
-            self._hover_overlay.setData(xs, ys)
-            self._hover_overlay.setVisible(True)
-        else:
-            self._hover_overlay.setData([], [])
-            self._hover_overlay.setVisible(False)
-
-        if change.preview_segments:
-            xs, ys = self._segments_to_xy_with_nans(change.preview_segments)
-            self._preview_overlay.setData(xs, ys)
-            self._preview_overlay.setVisible(True)
-        else:
-            self._preview_overlay.setData([], [])
-            self._preview_overlay.setVisible(False)
+        update_overlays(self, change)
 
     def _collect_preview_wells(self) -> Set[str]:
-        if self._store is not None:
-            return set(self._store.preview_wells)
-        return set(self._rect_preview_wells)
-
-    def _set_rect_preview(self, wells: Set[str]) -> None:
-        if wells == self._rect_preview_wells:
-            return
-        self._rect_preview_wells = wells
-        if self._store is not None:
-            self._store.set_preview(wells)
-        change = self._apply_interaction_styles(
-            hovered=self._hover_well,
-            selected=set(self._store.selected_wells) if self._store else set(),
-            preview=self._collect_preview_wells(),
-        )
-        self._update_overlays(change)
+        return collect_preview_wells_impl(self)
 
     def _on_store_preview_changed(self, wells: Set[str]) -> None:
-        self._rect_preview_wells = set(wells or set())
-        change = self._apply_interaction_styles(
-            hovered=self._hover_well,
-            selected=set(self._store.selected_wells) if self._store else set(),
-            preview=self._collect_preview_wells(),
-        )
-        self._update_overlays(change)
-        self._schedule_render(full=False, overlay=True)
+        return on_store_preview_changed_impl(self, wells)
 
-    def _pixel_tol_in_data(self) -> tuple[float, float]:
-        pixel = self._view_box.viewPixelSize()
-        if pixel is None:
-            return 0.1, 0.1
-        return abs(pixel[0] * 6), abs(pixel[1] * 6)
+    def _apply_interaction_styles(self, hovered: Optional[str], selected: Set[str], preview: Set[str]) -> InteractionStyleChange:
+        return apply_interaction_styles(self, hovered=hovered, selected=selected, preview=preview)
 
     # ---- render scheduling ----
     def _schedule_render(self, *, full: bool = False, overlay: bool = False, force_flush: bool = False) -> None:
-        self._pending_full_draw = self._pending_full_draw or full
-        self._pending_overlay = self._pending_overlay or overlay
+        return schedule_render_impl(self, full=full, overlay=overlay, force_flush=force_flush)
 
-
-        if force_flush:
-            if self._render_timer.isActive():
-                self._render_timer.stop()
-            self._flush_pending_render()
-            return
-
-
-        elapsed_ms = (perf_counter() - self._last_render_ts) * 1000.0
-        delay = max(0, int(self._frame_interval_ms - elapsed_ms))
-        if self._render_timer.isActive():
-            return
-        self._render_timer.start(delay)
     def _flush_pending_render(self) -> None:
-        full = self._pending_full_draw
-        overlay = self._pending_overlay or full
-        self._pending_full_draw = False
-        self._pending_overlay = False
-
-        if full or overlay:
-            self.update()  # Veya self._plot_item.update()
-
-        self._last_render_ts = perf_counter()
+        return flush_pending_render_impl(self)
 
     def _apply_axis_ranges(self, *, xlim: tuple[float, float], ylim: tuple[float, float]) -> None:
         apply_axis_ranges(self._plot_item, self._view_box, xlim=xlim, ylim=ylim)
