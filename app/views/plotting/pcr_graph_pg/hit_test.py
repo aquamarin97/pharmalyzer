@@ -45,6 +45,41 @@ def wells_in_rect(
                 continue
     return wells
 
+def wells_in_rect_centers(
+    well_ids: List[str],
+    centers: np.ndarray,
+    has_fam: np.ndarray,
+    has_hex: np.ndarray,
+    x0: float,
+    x1: float,
+    y0: float,
+    y1: float,
+    *,
+    fam_visible: bool,
+    hex_visible: bool,
+) -> Set[str]:
+    if centers is None or centers.size == 0 or not well_ids:
+        return set()
+
+    x0, x1 = sorted([x0, x1])
+    y0, y1 = sorted([y0, y1])
+    xs = centers[:, 0]
+    ys = centers[:, 1]
+
+    visible = np.zeros(len(centers), dtype=bool)
+    if fam_visible and has_fam.size == len(centers):
+        visible |= has_fam
+    if hex_visible and has_hex.size == len(centers):
+        visible |= has_hex
+    if not np.any(visible):
+        return set()
+
+    inside = (x0 <= xs) & (xs <= x1) & (y0 <= ys) & (ys <= y1) & visible
+    if not np.any(inside):
+        return set()
+
+    indices = np.nonzero(inside)[0]
+    return {well_ids[i] for i in indices}
 
 def nearest_well(
     index: Optional[WellSpatialIndex],

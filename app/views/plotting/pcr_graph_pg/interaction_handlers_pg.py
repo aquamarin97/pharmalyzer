@@ -5,10 +5,10 @@ from typing import Optional, Set
 
 from app.utils import well_mapping
 
-from .hit_test import nearest_well, wells_in_rect
+from .hit_test import nearest_well, wells_in_rect, wells_in_rect_centers
 from .render_scheduler_pg import schedule_render
 from .overlays_pg import update_overlays
-
+from time import perf_counter
 
 def pixel_tol_in_data(renderer) -> tuple[float, float]:
     pixel = renderer._view_box.viewPixelSize()  # noqa
@@ -22,13 +22,13 @@ def collect_preview_wells(renderer) -> Set[str]:
         return set(renderer._store.preview_wells)  # noqa
     return set(renderer._rect_preview_wells)  # noqa
 
-
 def set_rect_preview(renderer, wells: Set[str]) -> None:
     if wells == renderer._rect_preview_wells:  # noqa
         return
     renderer._rect_preview_wells = wells  # noqa
     if renderer._store is not None:  # noqa
         renderer._store.set_preview(wells)  # noqa
+    renderer._update_preview_proxy(wells)  # noqa
 
     change = renderer._apply_interaction_styles(  # noqa
         hovered=renderer._hover_well,  # noqa
@@ -40,6 +40,7 @@ def set_rect_preview(renderer, wells: Set[str]) -> None:
 
 def on_store_preview_changed(renderer, wells: Set[str]) -> None:
     renderer._rect_preview_wells = set(wells or set())  # noqa
+    renderer._update_preview_proxy(renderer._rect_preview_wells)  # noqa
     change = renderer._apply_interaction_styles(  # noqa
         hovered=renderer._hover_well,  # noqa
         selected=set(renderer._store.selected_wells) if renderer._store else set(),  # noqa
@@ -108,8 +109,39 @@ def handle_click(renderer, pos: tuple[float, float], *, ctrl_pressed: bool) -> N
         else:
             renderer._store.set_selection({well})  # noqa
 
-
 def handle_drag(renderer, start: tuple[float, float], current: tuple[float, float], *, finished: bool) -> None:
+    if finished:
+        if renderer._drag_throttle_timer.isActive():  # noqa
+            renderer._drag_throttle_timer.stop()  # noqa
+        renderer._pending_drag = None  # noqa
+        renderer._last_drag_ts = perf_counter()  # noqa
+        _apply_drag_update(renderer, start, current, finished=True)
+        return
+
+    now = perf_counter()
+    elapsed_ms = (now - renderer._last_drag_ts) * 1000.0  # noqa
+    if elapsed_ms < renderer._drag_throttle_ms:  # noqa
+        renderer._pending_drag = (start, current)  # noqa
+        if not renderer._drag_throttle_timer.isActive():  # noqa
+            wait_ms = max(0, int(renderer._drag_throttle_ms - elapsed_ms))  # noqa
+            renderer._drag_throttle_timer.start(wait_ms)  # noqa
+        return
+
+    renderer._last_drag_ts = now  # noqa
+    _apply_drag_update(renderer, start, current, finished=False)
+
+
+def flush_pending_drag(renderer) -> None:
+    pending = renderer._pending_drag  # noqa
+    renderer._pending_drag = None  # noqa
+    if pending is None:
+        return
+    start, current = pending
+    renderer._last_drag_ts = perf_counter()  # noqa
+    _apply_drag_update(renderer, start, current, finished=False)
+
+
+def _apply_drag_update(renderer, start: tuple[float, float], current: tuple[float, float], *, finished: bool) -> None:
     x0, y0 = start
     x1, y1 = current
     rect_x, rect_y = min(x0, x1), min(y0, y1)
@@ -124,9 +156,11 @@ def handle_drag(renderer, start: tuple[float, float], current: tuple[float, floa
         schedule_render(renderer, full=False, overlay=True)
         return
 
-    wells = wells_in_rect(
-        renderer._spatial_index,  # noqa
-        renderer._well_geoms,  # noqa
+    wells = wells_in_rect_centers(
+        renderer._well_center_ids,  # noqa
+        renderer._well_centers,  # noqa
+        renderer._well_center_has_fam,  # noqa
+        renderer._well_center_has_hex,  # noqa
         x0,
         x1,
         y0,
@@ -134,5 +168,16 @@ def handle_drag(renderer, start: tuple[float, float], current: tuple[float, floa
         fam_visible=renderer._fam_visible,  # noqa
         hex_visible=renderer._hex_visible,  # noqa
     )
+    if not wells:
+        wells = wells_in_rect(
+            renderer._spatial_index,  # noqa
+            renderer._well_geoms,  # noqa
+            x0,
+            x1,
+            y0,
+            y1,
+            fam_visible=renderer._fam_visible,  # noqa
+            hex_visible=renderer._hex_visible,  # noqa
+        )
     set_rect_preview(renderer, wells)
     schedule_render(renderer, full=False, overlay=True)

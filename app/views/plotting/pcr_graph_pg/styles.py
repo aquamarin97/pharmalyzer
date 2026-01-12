@@ -57,7 +57,10 @@ def apply_interaction_styles(r, hovered: Optional[str], selected: Set[str], prev
     base_dirty, _ = _update_selection_styles(r, selected, state)
 
     hover_segments = _build_segments_for_wells(r, [hovered] if hovered else [])
-    preview_segments = _build_segments_for_wells(r, preview)
+    if getattr(r, "_use_preview_proxy", False):
+        preview_segments = []
+    else:
+        preview_segments = _build_segments_for_wells(r, preview)
     overlay_dirty = base_dirty or state.prev_hover != hovered or state.prev_preview != preview
 
     state.prev_hover = hovered

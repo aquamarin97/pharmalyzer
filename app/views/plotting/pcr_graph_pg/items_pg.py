@@ -1,7 +1,7 @@
 # app/views/plotting/pcr_graph_pg/items_pg.py
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pyqtgraph as pg
@@ -34,6 +34,10 @@ def update_items(renderer, data: Dict[str, PCRCoords]) -> None:
     wells_sorted = sorted(data.keys(), key=lambda w: well_mapping.well_id_to_patient_no(w))
     fam_all: List[np.ndarray] = []
     hex_all: List[np.ndarray] = []
+    center_ids: List[str] = []
+    center_points: List[Tuple[float, float]] = []
+    center_has_fam: List[bool] = []
+    center_has_hex: List[bool] = []
 
     for well in wells_sorted:
         coords = data.get(well)
@@ -80,8 +84,16 @@ def update_items(renderer, data: Dict[str, PCRCoords]) -> None:
                 renderer._hex_items[well].setData([], [])
                 renderer._hex_items[well].setProperty("has_data", False)
 
+        center = _compute_well_center(fam_coords if fam_has_data else None, hex_coords if hex_has_data else None)
+        if center is not None:
+            center_ids.append(well)
+            center_points.append(center)
+            center_has_fam.append(fam_has_data)
+            center_has_hex.append(hex_has_data)
+
     refresh_axes_limits(renderer, fam_all, hex_all)
     refresh_legend_pg(renderer)
+    _update_center_cache(renderer, center_ids, center_points, center_has_fam, center_has_hex)
 
 
 def refresh_axes_limits(renderer, fam_coords: List[np.ndarray], hex_coords: List[np.ndarray]) -> None:
@@ -105,3 +117,46 @@ def rebuild_spatial_index(renderer) -> None:
         fam_visible=renderer._fam_visible,
         hex_visible=renderer._hex_visible,
     )
+
+
+def _compute_well_center(fam_coords: Optional[np.ndarray], hex_coords: Optional[np.ndarray]) -> Optional[Tuple[float, float]]:
+    coords_list: List[np.ndarray] = []
+    if fam_coords is not None and fam_coords.size > 0:
+        coords_list.append(fam_coords)
+    if hex_coords is not None and hex_coords.size > 0:
+        coords_list.append(hex_coords)
+    if not coords_list:
+        return None
+
+    combined = np.vstack(coords_list)
+    xs = combined[:, 0]
+    ys = combined[:, 1]
+    mask = np.isfinite(xs) & np.isfinite(ys)
+    if not np.any(mask):
+        return None
+
+    center_x = float(np.mean(xs[mask]))
+    center_y = float(np.mean(ys[mask]))
+    return center_x, center_y
+
+
+def _update_center_cache(
+    renderer,
+    center_ids: List[str],
+    center_points: List[Tuple[float, float]],
+    center_has_fam: List[bool],
+    center_has_hex: List[bool],
+) -> None:
+    if center_points:
+        renderer._well_centers = np.array(center_points, dtype=float)  # noqa
+        renderer._well_center_ids = center_ids  # noqa
+        renderer._well_center_has_fam = np.array(center_has_fam, dtype=bool)  # noqa
+        renderer._well_center_has_hex = np.array(center_has_hex, dtype=bool)  # noqa
+        renderer._well_center_index = {well: idx for idx, well in enumerate(center_ids)}  # noqa
+        return
+
+    renderer._well_centers = np.empty((0, 2), dtype=float)  # noqa
+    renderer._well_center_ids = []  # noqa
+    renderer._well_center_has_fam = np.array([], dtype=bool)  # noqa
+    renderer._well_center_has_hex = np.array([], dtype=bool)  # noqa
+    renderer._well_center_index = {}  # noqa

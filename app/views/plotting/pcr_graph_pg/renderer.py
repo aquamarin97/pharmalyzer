@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from time import perf_counter
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import pyqtgraph as pg
@@ -30,6 +30,7 @@ from .interaction_handlers_pg import (
     handle_drag as handle_drag_impl,
     on_store_preview_changed as on_store_preview_changed_impl,
     collect_preview_wells as collect_preview_wells_impl,
+    flush_pending_drag as flush_pending_drag_impl,
 )
 from .render_scheduler_pg import schedule_render as schedule_render_impl, flush_pending_render as flush_pending_render_impl
 
@@ -41,7 +42,6 @@ class PCRGraphRendererPG(pg.PlotWidget):
     """
     PyQtGraph-based PCR grafiği: yüksek FPS için optimize edildi.
     """
-
     def __init__(self, parent=None, style: PCRGraphStyle | None = None):
         self._style = style or PCRGraphStyle()
         self._title = "PCR Grafik"
@@ -72,6 +72,11 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._well_geoms: Dict[str, Dict[str, np.ndarray]] = {}
         self._spatial_index = None
         self._rect_preview_wells: Set[str] = set()
+        self._well_centers = np.empty((0, 2), dtype=float)
+        self._well_center_ids: List[str] = []
+        self._well_center_has_fam = np.array([], dtype=bool)
+        self._well_center_has_hex = np.array([], dtype=bool)
+        self._well_center_index: Dict[str, int] = {}
 
         # legend + ROI
         self._legend = pg.LegendItem(offset=(10, 10))
@@ -94,10 +99,25 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._pending_full_draw = False
         self._pending_overlay = False
         self._last_render_ts = perf_counter()
+        self._drag_throttle_ms = 30
+        self._last_drag_ts = 0.0
+        self._pending_drag: Optional[Tuple[tuple[float, float], tuple[float, float]]] = None
+        self._drag_throttle_timer = QtCore.QTimer(self)
+        self._drag_throttle_timer.setSingleShot(True)
+        self._drag_throttle_timer.timeout.connect(self._flush_pending_drag)
+        self._use_preview_proxy = True
 
         self._setup_axes()
         self._plot_item.addItem(self._hover_overlay)
         self._plot_item.addItem(self._preview_overlay)
+        self._preview_proxy = pg.ScatterPlotItem(
+            pen=None,
+            brush=pg.mkBrush(QtGui.QColor(self._style.overlay_color)),
+            size=6,
+        )
+        self._preview_proxy.setZValue(40)
+        self._preview_proxy.setVisible(False)
+        self._plot_item.addItem(self._preview_proxy, ignoreBounds=True)
 
     # ---- lifecycle ----
     def reset(self) -> None:
@@ -111,6 +131,12 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._style_state = None
         self._hover_well = None
         self._rect_preview_wells.clear()
+        self._well_centers = np.empty((0, 2), dtype=float)
+        self._well_center_ids = []
+        self._well_center_has_fam = np.array([], dtype=bool)
+        self._well_center_has_hex = np.array([], dtype=bool)
+        self._well_center_index = {}
+        self._pending_drag = None
 
         # scene cleanup
         try:
@@ -128,17 +154,33 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._hover_overlay.setVisible(False)
         self._preview_overlay.clear()
         self._preview_overlay.setVisible(False)
+        self._preview_proxy.setData([], [])
+        self._preview_proxy.setVisible(False)
 
         # re-add fixed items
         self._plot_item.addItem(self._rect_roi, ignoreBounds=True)
         self._plot_item.addItem(self._hover_overlay)
         self._plot_item.addItem(self._preview_overlay)
+        self._plot_item.addItem(self._preview_proxy, ignoreBounds=True)
 
         # axes
         self._setup_axes()
 
         if self._render_timer.isActive():
             self._render_timer.stop()
+        if self._drag_throttle_timer.isActive():
+            self._drag_throttle_timer.stop()
+
+    def closeEvent(self, event) -> None:
+        if self._render_timer.isActive():
+            self._render_timer.stop()
+        if self._drag_throttle_timer.isActive():
+            self._drag_throttle_timer.stop()
+        try:
+            self._legend.clear()
+        except Exception:
+            pass
+        super().closeEvent(event)
 
     def closeEvent(self, event) -> None:
         if self._render_timer.isActive():
@@ -200,7 +242,6 @@ class PCRGraphRendererPG(pg.PlotWidget):
         if self._store is not None:
             self._preview_slot = lambda wells: self._on_store_preview_changed(wells)  # type: ignore[attr-defined]
             self._store.previewChanged.connect(self._preview_slot)
-
     def set_channel_visibility(self, fam_visible: bool | None = None, hex_visible: bool | None = None) -> None:
         visibility_changed = set_channel_visibility(self, fam_visible, hex_visible)
         if not visibility_changed:
@@ -208,6 +249,7 @@ class PCRGraphRendererPG(pg.PlotWidget):
 
         refresh_legend_pg(self)
         rebuild_spatial_index(self)
+        self._update_preview_proxy(self._collect_preview_wells())
 
         change = self._apply_interaction_styles(
             hovered=self._hover_well,
@@ -255,12 +297,39 @@ class PCRGraphRendererPG(pg.PlotWidget):
     def _apply_interaction_styles(self, hovered: Optional[str], selected: Set[str], preview: Set[str]) -> InteractionStyleChange:
         return apply_interaction_styles(self, hovered=hovered, selected=selected, preview=preview)
 
+    def _update_preview_proxy(self, wells: Set[str]) -> None:
+        if not self._use_preview_proxy:
+            return
+        if not wells or not self._well_center_index:
+            self._preview_proxy.setData([], [])
+            self._preview_proxy.setVisible(False)
+            return
+        indices: List[int] = []
+        for well in wells:
+            idx = self._well_center_index.get(well)
+            if idx is None:
+                continue
+            fam_ok = self._fam_visible and self._well_center_has_fam[idx]
+            hex_ok = self._hex_visible and self._well_center_has_hex[idx]
+            if fam_ok or hex_ok:
+                indices.append(idx)
+        if not indices:
+            self._preview_proxy.setData([], [])
+            self._preview_proxy.setVisible(False)
+            return
+        coords = self._well_centers[indices]
+        self._preview_proxy.setData(coords[:, 0], coords[:, 1])
+        self._preview_proxy.setVisible(True)
+
     # ---- render scheduling ----
     def _schedule_render(self, *, full: bool = False, overlay: bool = False, force_flush: bool = False) -> None:
         return schedule_render_impl(self, full=full, overlay=overlay, force_flush=force_flush)
 
     def _flush_pending_render(self) -> None:
         return flush_pending_render_impl(self)
+
+    def _flush_pending_drag(self) -> None:
+        return flush_pending_drag_impl(self)
 
     def _apply_axis_ranges(self, *, xlim: tuple[float, float], ylim: tuple[float, float]) -> None:
         apply_axis_ranges(self._plot_item, self._view_box, xlim=xlim, ylim=ylim)

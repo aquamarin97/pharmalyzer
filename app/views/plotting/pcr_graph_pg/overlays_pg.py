@@ -44,6 +44,11 @@ def update_overlays(renderer, change) -> None:
         renderer._hover_overlay.setData([], [])
         renderer._hover_overlay.setVisible(False)
 
+    if getattr(renderer, "_use_preview_proxy", False):
+        renderer._preview_overlay.setData([], [])
+        renderer._preview_overlay.setVisible(False)
+        return
+
     if change.preview_segments:
         xs, ys = segments_to_xy_with_nans(change.preview_segments)
         renderer._preview_overlay.setData(xs, ys)
