@@ -45,41 +45,6 @@ def wells_in_rect(
                 continue
     return wells
 
-def wells_in_rect_centers(
-    well_ids: List[str],
-    centers: np.ndarray,
-    has_fam: np.ndarray,
-    has_hex: np.ndarray,
-    x0: float,
-    x1: float,
-    y0: float,
-    y1: float,
-    *,
-    fam_visible: bool,
-    hex_visible: bool,
-) -> Set[str]:
-    if centers is None or centers.size == 0 or not well_ids:
-        return set()
-
-    x0, x1 = sorted([x0, x1])
-    y0, y1 = sorted([y0, y1])
-    xs = centers[:, 0]
-    ys = centers[:, 1]
-
-    visible = np.zeros(len(centers), dtype=bool)
-    if fam_visible and has_fam.size == len(centers):
-        visible |= has_fam
-    if hex_visible and has_hex.size == len(centers):
-        visible |= has_hex
-    if not np.any(visible):
-        return set()
-
-    inside = (x0 <= xs) & (xs <= x1) & (y0 <= ys) & (ys <= y1) & visible
-    if not np.any(inside):
-        return set()
-
-    indices = np.nonzero(inside)[0]
-    return {well_ids[i] for i in indices}
 
 def nearest_well(
     index: Optional[WellSpatialIndex],
@@ -114,6 +79,40 @@ def nearest_well(
     return best
 
 
+def wells_in_rect_centers(
+    well_ids: List[str],
+    centers: np.ndarray,
+    has_fam: np.ndarray,
+    has_hex: np.ndarray,
+    x0: float,
+    x1: float,
+    y0: float,
+    y1: float,
+    *,
+    fam_visible: bool,
+    hex_visible: bool,
+) -> Set[str]:
+    if centers is None or centers.size == 0 or not well_ids:
+        return set()
+    x0, x1 = sorted([x0, x1])
+    y0, y1 = sorted([y0, y1])
+    xs = centers[:, 0]
+    ys = centers[:, 1]
+
+    visible = np.zeros(len(centers), dtype=bool)
+    if fam_visible and has_fam.size == len(centers):
+        visible |= has_fam
+
+    if hex_visible and has_hex.size == len(centers):
+        visible |= has_hex
+    if not np.any(visible):
+        return set()
+
+    inside = (x0 <= xs) & (xs <= x1) & (y0 <= ys) & (ys <= y1) & visible
+    if not np.any(inside):
+        return set()
+    indices = np.nonzero(inside)[0]
+    return {well_ids[i] for i in indices}
 def _any_point_in_rect(coords: np.ndarray, x0: float, x1: float, y0: float, y1: float) -> bool:
     if coords.ndim != 2 or coords.shape[1] != 2:
         if coords.ndim == 2 and coords.shape[0] == 2:
@@ -124,13 +123,54 @@ def _any_point_in_rect(coords: np.ndarray, x0: float, x1: float, y0: float, y1: 
     xs = coords[:, 0]
     ys = coords[:, 1]
     mask = np.isfinite(xs) & np.isfinite(ys)
-    if not np.any(mask):
+    if np.count_nonzero(mask) < 2:
         return False
 
     xs = xs[mask]
     ys = ys[mask]
-    inside = (x0 <= xs) & (xs <= x1) & (y0 <= ys) & (ys <= y1)
-    return bool(np.any(inside))
+    if xs.size < 2:
+        return False
+
+    x_start = xs[:-1]
+    y_start = ys[:-1]
+    x_end = xs[1:]
+    y_end = ys[1:]
+
+    x0, x1 = sorted([x0, x1])
+    y0, y1 = sorted([y0, y1])
+
+    inside_start = (x0 <= x_start) & (x_start <= x1) & (y0 <= y_start) & (y_start <= y1)
+    inside_end = (x0 <= x_end) & (x_end <= x1) & (y0 <= y_end) & (y_end <= y1)
+    if np.any(inside_start | inside_end):
+        return True
+
+    dx = x_end - x_start
+    dy = y_end - y_start
+    u1 = np.zeros_like(dx, dtype=float)
+    u2 = np.ones_like(dx, dtype=float)
+    valid = np.ones_like(dx, dtype=bool)
+
+    def _clip(p: np.ndarray, q: np.ndarray) -> None:
+        nonlocal u1, u2, valid
+        parallel = p == 0
+        valid &= ~(parallel & (q < 0))
+        if not np.any(valid):
+            return
+        ratio = np.empty_like(p, dtype=float)
+        ratio[~parallel] = q[~parallel] / p[~parallel]
+        ratio[parallel] = 0.0
+        neg = (p < 0) & ~parallel
+        pos = (p > 0) & ~parallel
+        u1 = np.where(neg, np.maximum(u1, ratio), u1)
+        u2 = np.where(pos, np.minimum(u2, ratio), u2)
+        valid &= u1 <= u2
+
+    _clip(-dx, x_start - x0)
+    _clip(dx, x1 - x_start)
+    _clip(-dy, y_start - y0)
+    _clip(dy, y1 - y_start)
+
+    return bool(np.any(valid))
 
 
 def _distance_sq_to_well(

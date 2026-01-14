@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from typing import Optional, Set
 
-from app.utils import well_mapping
 
 from .hit_test import nearest_well, wells_in_rect, wells_in_rect_centers
 from .render_scheduler_pg import schedule_render

@@ -92,8 +92,12 @@ pharmalyzer/
 │       │   ├── pcr_graph_pg
 │       │   │   ├── axes.py
 │       │   │   ├── hit_test.py
+│       │   │   ├── interaction_handlers_pg.py
 │       │   │   ├── interactions.py
+│       │   │   ├── items_pg.py
 │       │   │   ├── legend.py
+│       │   │   ├── overlays_pg.py
+│       │   │   ├── render_scheduler_pg.py
 │       │   │   ├── renderer.py
 │       │   │   ├── spatial_index.py
 │       │   │   ├── styles.py
@@ -116,13 +120,13 @@ pharmalyzer/
 │       │   │   │   ├── drag_select.py
 │       │   │   │   ├── header_select.py
 │       │   │   │   └── range_select.py
-│       │   │   ├── paint
-│       │   │   │   ├── corner.py
-│       │   │   │   ├── header_selection.py
-│       │   │   │   └── hover_preview.py
 │       │   │   ├── setup
 │       │   │   │   ├── grid_setup.py
 │       │   │   │   └── resizing.py
+│       │   │   ├── _mouse_handlers.py
+│       │   │   ├── _render_apply.py
+│       │   │   ├── _store_binding.py
+│       │   │   ├── _ui_setup.py
 │       │   │   ├── pcr_plate_table.py
 │       │   │   ├── pcr_plate_widget.py
 │       │   │   └── store_binding.py
@@ -135,9 +139,6 @@ pharmalyzer/
 │   ├── appicon.ico
 │   ├── appicon.png
 │   └── pharmalinelogo.svg
-├── data
-│   ├── cache
-│   └── user
 ├── deployments
 │   └── a.txt
 ├── docs
@@ -145,8 +146,6 @@ pharmalyzer/
 ├── helper
 │   └── tapphelper.py
 ├── logs
-│   ├── 3_küme.txt
-│   ├── 5_küme.txt
 │   └── pharmalizer.log
 ├── resources
 │   └── a.txt

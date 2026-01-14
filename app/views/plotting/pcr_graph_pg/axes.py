@@ -5,7 +5,6 @@ from decimal import Decimal
 from typing import List, Tuple
 
 import pyqtgraph as pg
-from PyQt5 import QtCore, QtGui
 
 from app.constants.pcr_graph_style import AxesStyle
 

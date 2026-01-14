@@ -139,5 +139,4 @@ class PCRGraphViewBox(pg.ViewBox):
             ev.accept()
             
         except Exception as e:
-            # Eksen üzerindeki etkileşimlerde "axis" argümanı hatasını ve diğerlerini burada yakalarız
             ev.ignore()

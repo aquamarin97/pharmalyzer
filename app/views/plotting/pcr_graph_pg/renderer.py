@@ -10,16 +10,12 @@ import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui
 
 from app.constants.pcr_graph_style import PCRGraphStyle
-from app.services.graph.pcr_graph_layout_service import PCRGraphLayoutService
 from app.services.interaction_store import InteractionStore
 from app.services.pcr_data_service import PCRCoords
 from app.utils import well_mapping
 
 from .axes import apply_axis_ranges, apply_axes_style, set_axis_ticks
-from .hit_test import nearest_well, wells_in_rect
 from .interactions import PCRGraphViewBox
-from .legend import refresh_legend
-from .spatial_index import build_spatial_index
 from .styles import InteractionStyleChange, StyleState, apply_interaction_styles, set_channel_visibility
 
 from .items_pg import update_items, refresh_legend_pg, rebuild_spatial_index
