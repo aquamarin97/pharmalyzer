@@ -121,21 +121,44 @@ class PlateTable(QTableWidget):
         painter.setBrush(QColor("#4ca1af"))
         painter.drawPolygon(triangle)
         painter.restore()
-
     def _draw_hover_highlight(self, painter: QPainter) -> None:
         painter.save()
 
-        if self._preview_cells:
-            pen = QPen(Qt.red, 2)
-            painter.setPen(pen)
-            painter.setBrush(Qt.NoBrush)
+        def _draw_cell_accent(rr, accent: QColor) -> None:
+            """
+            Selection hissini taklit eden hover/preview çizimi:
+            - soft tint dolgu
+            - accent border
+            - inner glow
+            """
+            tint = QColor(accent)
+            tint.setAlpha(50)  # selection'daki gibi soft
 
+            inner_glow = QColor(255, 255, 255, 90)
+
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(tint)
+            painter.drawRect(rr)
+
+            painter.setBrush(Qt.NoBrush)
+            painter.setPen(QPen(accent, 2))
+            painter.drawRect(rr)
+
+            painter.setPen(QPen(inner_glow, 1))
+            painter.drawRect(rr.adjusted(1, 1, -1, -1))
+
+        hover_accent = QColor("#FF3B30")  # kırmızı hover accent (istersen Qt.red)
+
+        # Preview cells (multi-cell hover / drag preview)
+        if self._preview_cells:
             for row_idx, col_idx in self._preview_cells:
                 model_index = self.model().index(row_idx, col_idx)
                 rect = self.visualRect(model_index)
                 if rect.isValid():
-                    painter.drawRect(rect.adjusted(1, 1, -1, -1))
+                    rr = rect.adjusted(1, 1, -1, -1)
+                    _draw_cell_accent(rr, hover_accent)
 
+        # Single hover cell
         row, col = self._hover_index_getter()
         if row is None or col is None:
             painter.restore()
@@ -149,6 +172,7 @@ class PlateTable(QTableWidget):
 
         is_header = row == 0 or col == 0
         if is_header:
+            # Header hover: mevcut mavi header hover stili kalsın
             r = rect.adjusted(1, 1, -1, -1)
 
             accent = QColor("#3A7AFE")
@@ -169,12 +193,12 @@ class PlateTable(QTableWidget):
             painter.drawRect(r.adjusted(1, 1, -1, -1))
 
         else:
-            pen = QPen(Qt.red, 2)
-            painter.setPen(pen)
-            painter.setBrush(Qt.NoBrush)
-            painter.drawRect(rect.adjusted(1, 1, -1, -1))
+            # Normal cell hover: border yerine "selection gibi" kırmızı tint + glow
+            rr = rect.adjusted(1, 1, -1, -1)
+            _draw_cell_accent(rr, hover_accent)
 
         painter.restore()
+
 
     # ---- mouse handling ----
     def mouseMoveEvent(self, event):

@@ -28,10 +28,3 @@ class PCRGraphView(PCRGraphRendererPG):
         """
         self._interactor.set_interaction_store(store=store, data_service=data_service)
 
-    def reset_plot(self) -> None:
-        """Geriye dönük uyumluluk için reset alias'ı."""
-        self.reset()
-
-    def closeEvent(self, event) -> None:
-        self._interactor.dispose()
-        super().closeEvent(event)
