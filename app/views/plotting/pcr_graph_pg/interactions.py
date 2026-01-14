@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from PyQt5 import QtCore
 import pyqtgraph as pg
-
+import numpy as np
 if TYPE_CHECKING:
     from .renderer import PCRGraphRendererPG
 
@@ -22,8 +22,8 @@ class PCRGraphViewBox(pg.ViewBox):
         self.setAcceptHoverEvents(True)
         self._drag_active = False
         self._pan_active = False
-        self._pan_speed = 0.0015  # daha yumuşak
-        self._pan_speed = 0.003   # daha hızlı
+        self._pan_speed = 0.003
+        self._last_pan_pos = None
 
 
 
@@ -49,7 +49,6 @@ class PCRGraphViewBox(pg.ViewBox):
             )
             ev.accept()
             return
-        super().mouseClickEvent(ev)
 
     def mouseDragEvent(self, ev, axis=None):
         # --- Middle mouse => SMOOTH PAN ---
@@ -103,27 +102,42 @@ class PCRGraphViewBox(pg.ViewBox):
         ev.accept()
         if ev.isFinish():
             self._drag_active = False
-
-
-            
-            
-    def wheelEvent(self, ev):
-        # pyqtgraph ViewBox wheel zoom'u normalde mouseEnabled ile ilişkilidir;
-        # biz custom zoom yapıyoruz.
+        self._renderer.update_axes_dynamically()
+    # wheelEvent imzasını hem event'i hem de olası keyword argümanları alacak şekilde güncelledik
+    def wheelEvent(self, ev, axis=None): 
         try:
-            delta = ev.delta()  # bazı sürümlerde var
-        except Exception:
-            delta = ev.angleDelta().y()  # Qt5 wheel event
+            # 1. Delta alma
+            try:
+                delta = ev.angleDelta().y()
+            except AttributeError:
+                delta = ev.delta() if hasattr(ev, 'delta') else 0
 
-        if delta == 0:
+            if delta == 0:
+                ev.ignore()
+                return
+
+            # 2. Zoom katsayısı
+            steps = delta / 120.0
+            zoom_factor = 0.85 ** steps 
+
+            # 3. Güvenli Koordinat ve Zoom
+            s_pos = ev.scenePos()
+            if s_pos is None:
+                return
+                
+            mouse_point = self.mapSceneToView(s_pos)
+            
+            if not (np.isfinite(mouse_point.x()) and np.isfinite(mouse_point.y())):
+                return
+
+            # Zoom işlemini uygula
+            self.scaleBy((zoom_factor, zoom_factor), center=mouse_point)
+            
+            # 4. Eksenleri Tetikle
+            self._renderer.update_axes_dynamically()
+            
+            ev.accept()
+            
+        except Exception as e:
+            # Eksen üzerindeki etkileşimlerde "axis" argümanı hatasını ve diğerlerini burada yakalarız
             ev.ignore()
-            return
-
-        # wheel up -> zoom in, wheel down -> zoom out
-        steps = delta / 120.0
-        zoom_factor = 0.9 ** steps  # 0.9: hassasiyet; istersen 0.95 yaparız
-
-        mouse_point = self.mapSceneToView(ev.scenePos())
-        self.scaleBy((zoom_factor, zoom_factor), center=mouse_point)
-
-        ev.accept()

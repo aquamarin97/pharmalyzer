@@ -13,7 +13,6 @@ from app.utils import well_mapping
 from .legend import refresh_legend
 from .spatial_index import build_spatial_index
 
-
 def update_items(renderer, data: Dict[str, PCRCoords]) -> None:
     """
     renderer üzerindeki _fam_items/_hex_items/_well_geoms vb. cache'leri günceller.
@@ -34,6 +33,7 @@ def update_items(renderer, data: Dict[str, PCRCoords]) -> None:
     wells_sorted = sorted(data.keys(), key=lambda w: well_mapping.well_id_to_patient_no(w))
     fam_all: List[np.ndarray] = []
     hex_all: List[np.ndarray] = []
+    total_points = 0
     center_ids: List[str] = []
     center_points: List[Tuple[float, float]] = []
     center_has_fam: List[bool] = []
@@ -56,6 +56,7 @@ def update_items(renderer, data: Dict[str, PCRCoords]) -> None:
 
         if fam_has_data:
             fam_all.append(fam_coords)
+            total_points += fam_coords.shape[0]
             fam_item = renderer._fam_items.get(well)
             if fam_item is None:
                 fam_item = pg.PlotDataItem(connect="finite", name="FAM")
@@ -71,6 +72,7 @@ def update_items(renderer, data: Dict[str, PCRCoords]) -> None:
 
         if hex_has_data:
             hex_all.append(hex_coords)
+            total_points += hex_coords.shape[0]
             hex_item = renderer._hex_items.get(well)
             if hex_item is None:
                 hex_item = pg.PlotDataItem(connect="finite", name="HEX")
@@ -91,9 +93,12 @@ def update_items(renderer, data: Dict[str, PCRCoords]) -> None:
             center_has_fam.append(fam_has_data)
             center_has_hex.append(hex_has_data)
 
+    renderer._large_dataset = total_points > 20000  # noqa
+    _apply_performance_tuning(renderer, renderer._large_dataset)
     refresh_axes_limits(renderer, fam_all, hex_all)
     refresh_legend_pg(renderer)
     _update_center_cache(renderer, center_ids, center_points, center_has_fam, center_has_hex)
+
 
 
 def refresh_axes_limits(renderer, fam_coords: List[np.ndarray], hex_coords: List[np.ndarray]) -> None:
@@ -160,3 +165,12 @@ def _update_center_cache(
     renderer._well_center_has_fam = np.array([], dtype=bool)  # noqa
     renderer._well_center_has_hex = np.array([], dtype=bool)  # noqa
     renderer._well_center_index = {}  # noqa
+
+
+def _apply_performance_tuning(renderer, enabled: bool) -> None:
+    for item in list(renderer._fam_items.values()) + list(renderer._hex_items.values()):
+        item.setClipToView(enabled)
+        if enabled:
+            item.setDownsampling(auto=True, method="peak")
+        else:
+            item.setDownsampling(auto=False)

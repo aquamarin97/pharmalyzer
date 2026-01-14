@@ -15,7 +15,7 @@ from app.services.interaction_store import InteractionStore
 from app.services.pcr_data_service import PCRCoords
 from app.utils import well_mapping
 
-from .axes import apply_axis_ranges, apply_axes_style
+from .axes import apply_axis_ranges, apply_axes_style, set_axis_ticks
 from .hit_test import nearest_well, wells_in_rect
 from .interactions import PCRGraphViewBox
 from .legend import refresh_legend
@@ -106,6 +106,13 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._drag_throttle_timer.setSingleShot(True)
         self._drag_throttle_timer.timeout.connect(self._flush_pending_drag)
         self._use_preview_proxy = True
+        self._tick_update_timer = QtCore.QTimer(self)
+        self._tick_update_timer.setSingleShot(True)
+        self._tick_update_timer.timeout.connect(self._flush_pending_ticks)
+        self._pending_tick_range: Optional[Tuple[Tuple[float, float], Tuple[float, float]]] = None
+        self._last_tick_range: Optional[Tuple[Tuple[float, float], Tuple[float, float]]] = None
+        self._large_dataset = False
+
 
         self._setup_axes()
         self._plot_item.addItem(self._hover_overlay)
@@ -118,6 +125,7 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._preview_proxy.setZValue(40)
         self._preview_proxy.setVisible(False)
         self._plot_item.addItem(self._preview_proxy, ignoreBounds=True)
+        self._view_box.sigRangeChanged.connect(self._on_view_range_changed)
 
     # ---- lifecycle ----
     def reset(self) -> None:
@@ -170,21 +178,16 @@ class PCRGraphRendererPG(pg.PlotWidget):
             self._render_timer.stop()
         if self._drag_throttle_timer.isActive():
             self._drag_throttle_timer.stop()
-
+        if self._tick_update_timer.isActive():
+            self._tick_update_timer.stop() 
+            
     def closeEvent(self, event) -> None:
         if self._render_timer.isActive():
             self._render_timer.stop()
         if self._drag_throttle_timer.isActive():
             self._drag_throttle_timer.stop()
-        try:
-            self._legend.clear()
-        except Exception:
-            pass
-        super().closeEvent(event)
-
-    def closeEvent(self, event) -> None:
-        if self._render_timer.isActive():
-            self._render_timer.stop()
+        if self._tick_update_timer.isActive():
+            self._tick_update_timer.stop()
         try:
             self._legend.clear()
         except Exception:
@@ -232,16 +235,23 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._schedule_render(full=change.base_dirty, overlay=True)
 
     def bind_interaction_store(self, store: InteractionStore | None) -> None:
+        # Eski store varsa disconnect et
         if self._store is not None:
             try:
-                self._store.previewChanged.disconnect(self._preview_slot)  # type: ignore[attr-defined]
-            except Exception:
+                self._store.previewChanged.disconnect(self._on_store_preview_changed)
+            except TypeError:
+                # Zaten bağlı değilse PyQt TypeError fırlatır
                 pass
 
         self._store = store
+
+        # Yeni store varsa connect et
         if self._store is not None:
-            self._preview_slot = lambda wells: self._on_store_preview_changed(wells)  # type: ignore[attr-defined]
-            self._store.previewChanged.connect(self._preview_slot)
+            self._store.previewChanged.connect(
+    self._on_store_preview_changed,
+    QtCore.Qt.QueuedConnection,
+)
+
     def set_channel_visibility(self, fam_visible: bool | None = None, hex_visible: bool | None = None) -> None:
         visibility_changed = set_channel_visibility(self, fam_visible, hex_visible)
         if not visibility_changed:
@@ -333,3 +343,29 @@ class PCRGraphRendererPG(pg.PlotWidget):
 
     def _apply_axis_ranges(self, *, xlim: tuple[float, float], ylim: tuple[float, float]) -> None:
         apply_axis_ranges(self._plot_item, self._view_box, xlim=xlim, ylim=ylim)
+
+    def _on_view_range_changed(self, view_box, range_) -> None:
+        if not range_ or len(range_) < 2:
+            return
+        x_range = (float(range_[0][0]), float(range_[0][1]))
+        y_range = (float(range_[1][0]), float(range_[1][1]))
+        if self._last_tick_range == (x_range, y_range):
+            return
+        self._pending_tick_range = (x_range, y_range)
+        if not self._tick_update_timer.isActive():
+            self._tick_update_timer.start(30)
+    def update_axes_dynamically(self):
+            """ViewBox değiştikçe eksen etiketlerini yeniden hesaplar."""
+            try:
+                # Mevcut görünür aralığı al
+                (x0, x1), (y0, y1) = self._view_box.viewRange()            
+                set_axis_ticks(self._plot_item, (x0, x1), (y0, y1))
+            except Exception as e:
+                print(f"Dynamic axis update error: {e}")
+    def _flush_pending_ticks(self) -> None:
+        if self._pending_tick_range is None:
+            return
+        x_range, y_range = self._pending_tick_range
+        self._pending_tick_range = None
+        self._last_tick_range = (x_range, y_range)
+        set_axis_ticks(self._plot_item, x_range, y_range)

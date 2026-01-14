@@ -1,7 +1,12 @@
 from __future__ import annotations
+
+import math
+from decimal import Decimal
 from typing import List, Tuple
+
 import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui
+
 from app.constants.pcr_graph_style import AxesStyle
 
 def apply_axes_style(
@@ -47,59 +52,89 @@ def set_axis_ticks(plot_item: pg.PlotItem, xlim: Tuple[float, float], ylim: Tupl
     bottom_axis = plot_item.getAxis("bottom")
     left_axis = plot_item.getAxis("left")
 
-    # X adımları (Cycle) - Tam sayılara hizalı
-    x_step = 5 if (xlim[1] - xlim[0]) > 20 else 2
-    
-    # Y adımları (Floresan)
+    x_range = xlim[1] - xlim[0]
     y_range = ylim[1] - ylim[0]
-    if y_range > 15000: y_step = 5000
-    elif y_range > 5000: y_step = 2000
-    else: y_step = 1000
+    
+    # Hata önleyici: Aralık aşırı küçükse (float precision hatası) işlem yapma
+    if x_range < 1e-10 or y_range < 1e-10:
+        return
 
-    # Ticks oluştur: 
-    # Y ekseni için özel hizalama: -500'den başlasa bile ilk tick'i 0'a veya 1000'e kurar.
-    bottom_axis.setTicks([build_ticks(xlim[0], xlim[1], step=x_step, force_end=True, align_to=0)])
-    left_axis.setTicks([build_ticks(ylim[0], ylim[1], step=y_step, force_end=True, align_to=0)])
+    # target_ticks değerlerini zoom seviyesine göre dinamik bırakabiliriz
+    x_step = _nice_step(x_range, target_ticks=7)
+    y_step = _nice_step(y_range, target_ticks=6)
+
+    # build_ticks senin fonksiyonun, aynı kalabilir
+    x_ticks = build_ticks(xlim[0], xlim[1], step=x_step, force_end=False) # Zoom'da force_end False daha iyidir
+    y_ticks = build_ticks(ylim[0], ylim[1], step=y_step, force_end=False)
+
+    if x_ticks:
+        bottom_axis.setTicks([x_ticks])
+    if y_ticks:
+        left_axis.setTicks([y_ticks])
 
 def build_ticks(start: float, end: float, step: float, force_end: bool = False, align_to: float = 0) -> List[tuple[float, str]]:
     ticks: List[tuple[float, str]] = []
-    
-    # 1. İlk tick'i "align_to" (örneğin 0) değerine göre hizala
-    # Start -500 ise ve align_to 0 ise, ilk tick 0'dan başlar.
-    # Eğer start -500 iken -1000, 0, 1000 gibi gitsin istiyorsak:
-    first_tick = (start // step) * step
+
+    if step <= 0:
+        return ticks
+
+    first_tick = math.floor(start / step) * step
     if first_tick < start:
         first_tick += step
-    
-    # 0 değerini mutlaka içermesi gerekiyorsa ve start/end arasındaysa listeye dahil et
+
     current = first_tick
     
-    # Eksen başlangıcında (örn: -500) sayı yazmasın, sadece tam sayılarda yazsın istiyoruz
-    while current <= end:
-        # Küsürat hatalarını önlemek için round kullanıyoruz
-        val = round(current / (step / 100)) * (step / 100) 
-        ticks.append((val, format_tick_value(val)))
+    while current <= end + (step * 0.001):
+        val = _round_to_step(current, step)
+        ticks.append((val, format_tick_value(val, step)))
         current += step
-    
-    # 2. 0 değerini zorla ekle (Eğer aralıktaysa ve yukarıdaki döngü kaçırdıysa)
+
     has_zero = any(t[0] == 0 for t in ticks)
     if not has_zero and start <= 0 <= end:
         ticks.append((0.0, "0"))
-        ticks.sort() # Sıralamayı koru
+        ticks.sort()
 
-    # 3. Uç nokta değerini ekle (Maksimum Cycle değeri)
     if force_end:
         last_val = ticks[-1][0] if ticks else start
-        if end - last_val > (step * 0.1): # Eğer uç noktaya çok yakın değilsek ekle
-            ticks.append((end, format_tick_value(end)))
+        if end - last_val > (step * 0.1):
+            ticks.append((end, format_tick_value(end, step)))
         
     return ticks
 
-def format_tick_value(value: float) -> str:
-    if abs(value) < 0.001: return "0" # Floating point 0.0000004 hatasını önler
-    if abs(value) >= 1000:
-        return f"{int(value)}"
-    return f"{value:.0f}"
+def format_tick_value(value: float, step: float) -> str:
+    if abs(value) < 0.000001:
+        return "0"
+    if abs(value) >= 1000 and step >= 1:
+        return f"{int(round(value))}"
+    decimals = _decimal_places(step)
+    formatted = f"{value:.{decimals}f}"
+    if "." in formatted:
+        formatted = formatted.rstrip("0").rstrip(".")
+    return formatted
+
+
+def _nice_step(value_range: float, target_ticks: int = 7) -> float:
+    if value_range <= 0:
+        return 1.0
+    raw = value_range / max(target_ticks, 1)
+    magnitude = 10 ** math.floor(math.log10(raw))
+    for factor in (1, 2, 2.5, 5, 10):
+        step = factor * magnitude
+        if step >= raw:
+            return step
+    return 10 * magnitude
+
+
+def _decimal_places(step: float) -> int:
+    dec = Decimal(str(step)).normalize()
+    exp = -dec.as_tuple().exponent
+    return max(0, exp)
+
+
+def _round_to_step(value: float, step: float) -> float:
+    if step == 0:
+        return value
+    return round(value / step) * step
 
 def apply_axis_ranges(
     plot_item: pg.PlotItem,
