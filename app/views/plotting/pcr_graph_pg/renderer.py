@@ -101,7 +101,7 @@ class PCRGraphRendererPG(pg.PlotWidget):
         self._drag_throttle_timer = QtCore.QTimer(self)
         self._drag_throttle_timer.setSingleShot(True)
         self._drag_throttle_timer.timeout.connect(self._flush_pending_drag)
-        self._use_preview_proxy = True
+        self._use_preview_proxy = False
         self._tick_update_timer = QtCore.QTimer(self)
         self._tick_update_timer.setSingleShot(True)
         self._tick_update_timer.timeout.connect(self._flush_pending_ticks)
@@ -305,6 +305,8 @@ class PCRGraphRendererPG(pg.PlotWidget):
 
     def _update_preview_proxy(self, wells: Set[str]) -> None:
         if not self._use_preview_proxy:
+            self._preview_proxy.setData([], [])
+            self._preview_proxy.setVisible(False)
             return
         if not wells or not self._well_center_index:
             self._preview_proxy.setData([], [])

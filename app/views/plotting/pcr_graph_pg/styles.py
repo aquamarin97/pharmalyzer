@@ -9,7 +9,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtGui, QtCore
 
-PenKey = Tuple[str, float, float, bool]
+PenKey = Tuple[str, float, float, QtCore.Qt.PenStyle]
 
 _PEN_CACHE: Dict[PenKey, QtGui.QPen] = {}
 
@@ -30,15 +30,15 @@ class StyleState:
     initialized: bool = False
 
 
-def build_pen(color: str, width: float, alpha: float) -> QtGui.QPen:
-    key = (color, width, alpha)
+def build_pen(color: str, width: float, alpha: float, style: QtCore.Qt.PenStyle = QtCore.Qt.SolidLine) -> QtGui.QPen:
+    key = (color, width, alpha, style)
     if key in _PEN_CACHE:
         return _PEN_CACHE[key]
 
     color_obj = QtGui.QColor(color)
     color_obj.setAlphaF(alpha)
     # Hint: Cosmetice True yaparak zoom yapsan da çizgi kalınlığının sabit kalmasını sağlıyoruz
-    pen = pg.mkPen(color=color_obj, width=width)
+    pen = pg.mkPen(color=color_obj, width=width, style=style)
     pen.setCosmetic(True)
     pen.setCapStyle(QtCore.Qt.RoundCap)
     pen.setJoinStyle(QtCore.Qt.RoundJoin)
@@ -54,14 +54,11 @@ def apply_interaction_styles(r, hovered: Optional[str], selected: Set[str], prev
         r._style_state = StyleState()
     state: StyleState = r._style_state
 
-    base_dirty, _ = _update_selection_styles(r, selected, state)
+    base_dirty = _update_interaction_styles(r, selected, preview, state)
 
     hover_segments = _build_segments_for_wells(r, [hovered] if hovered else [])
-    if getattr(r, "_use_preview_proxy", False):
-        preview_segments = []
-    else:
-        preview_segments = _build_segments_for_wells(r, preview)
-    overlay_dirty = base_dirty or state.prev_hover != hovered or state.prev_preview != preview
+    preview_segments: List[np.ndarray] = []
+    overlay_dirty = base_dirty or state.prev_hover != hovered
 
     state.prev_hover = hovered
     state.prev_preview = set(preview)
@@ -75,44 +72,54 @@ def apply_interaction_styles(r, hovered: Optional[str], selected: Set[str], prev
     )
 
 
-def _update_selection_styles(r, selected: Set[str], state: StyleState) -> tuple[bool, Set[str]]:
+def _update_interaction_styles(r, selected: Set[str], preview: Set[str], state: StyleState) -> bool:
     if not state.initialized:
         changed = set(r._fam_items.keys()) | set(r._hex_items.keys())
         state.initialized = True
     else:
-        changed = state.prev_selected.symmetric_difference(selected)
+        changed = (
+            state.prev_selected.symmetric_difference(selected)
+            | state.prev_preview.symmetric_difference(preview)
+        )
 
     if not changed:
-        return False, changed
+        return False
 
     for well in changed:
-        _style_well(r, well, selected)
-    return True, changed
+        _style_well(r, well, selected, preview)
+    return True
 
-def _style_well(r, well: str, selected: Set[str]) -> None:
+def _style_well(r, well: str, selected: Set[str], preview: Set[str]) -> None:
     is_selected = well in selected
+    is_preview = well in preview
     any_selection = len(selected) > 0
-    
-    # Dinamik Opaklık Mantığı (Profesyonel dokunuş)
-    # Eğer bir seçim varsa ve bu kuyucuk o seçimde değilse 'dim' (karartma) uygula
-    if any_selection and not is_selected:
-        target_alpha = r._style.inactive_alpha  # %15 opaklık
-        target_width = r._style.base_width
-        z_value = 1  # En alt katman
-    elif is_selected:
+
+    if is_selected:
         target_alpha = 1.0  # %100 görünürlük
         target_width = r._style.selected_width
         z_value = 100 # En üst katman
+        target_style = QtCore.Qt.SolidLine
+    elif is_preview:
+        target_alpha = 1.0
+        target_width = r._style.overlay_preview_width
+        z_value = 80
+        target_style = QtCore.Qt.DashLine
+    elif any_selection:
+        target_alpha = r._style.inactive_alpha  # %15 opaklık
+        target_width = r._style.base_width
+        z_value = 1  # En alt katman
+        target_style = QtCore.Qt.SolidLine
     else:
         # Hiçbir seçim yoksa herkes eşit ve orta görünürlükte
         target_alpha = 0.8
         target_width = r._style.base_width
         z_value = 10
+        target_style = QtCore.Qt.SolidLine
 
     # FAM Uygulaması
     fam_item = r._fam_items.get(well)
     if fam_item:
-        pen = build_pen(r._style.fam_color, target_width, target_alpha)
+        pen = build_pen(r._style.fam_color, target_width, target_alpha, target_style)
         fam_item.setPen(pen)
         fam_item.setZValue(z_value)
         fam_item.setVisible(r._fam_visible and bool(fam_item.property("has_data")))
@@ -120,7 +127,7 @@ def _style_well(r, well: str, selected: Set[str]) -> None:
     # HEX Uygulaması
     hex_item = r._hex_items.get(well)
     if hex_item:
-        pen = build_pen(r._style.hex_color, target_width, target_alpha)
+        pen = build_pen(r._style.hex_color, target_width, target_alpha, target_style)
         hex_item.setPen(pen)
         hex_item.setZValue(z_value)
 

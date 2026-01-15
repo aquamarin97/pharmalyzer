@@ -99,8 +99,6 @@ def update_items(renderer, data: Dict[str, PCRCoords]) -> None:
     refresh_legend_pg(renderer)
     _update_center_cache(renderer, center_ids, center_points, center_has_fam, center_has_hex)
 
-
-
 def refresh_axes_limits(renderer, fam_coords: List[np.ndarray], hex_coords: List[np.ndarray]) -> None:
     ylim = PCRGraphLayoutService.compute_ylim_for_static_draw(
         fam_coords=fam_coords,
@@ -166,6 +164,14 @@ def _update_center_cache(
     renderer._well_center_has_hex = np.array([], dtype=bool)  # noqa
     renderer._well_center_index = {}  # noqa
 
+
+def _apply_performance_tuning(renderer, enabled: bool) -> None:
+    for item in list(renderer._fam_items.values()) + list(renderer._hex_items.values()):
+        item.setClipToView(enabled)
+        if enabled:
+            item.setDownsampling(auto=True, method="peak")
+        else:
+            item.setDownsampling(auto=False)
 
 def _apply_performance_tuning(renderer, enabled: bool) -> None:
     for item in list(renderer._fam_items.values()) + list(renderer._hex_items.values()):

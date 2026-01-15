@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import List, Tuple
 
 import pyqtgraph as pg
+from PyQt5 import QtCore, QtGui
 
 from app.constants.pcr_graph_style import AxesStyle
 
@@ -31,6 +32,8 @@ def apply_axes_style(
     view_box.setBackgroundColor(style_axes.ax_facecolor)
     
     # --- 2. Grid Yönetimi (Daha Az Baskın) ---
+    # Grid rengini arka plana yaklaştırıp alpha'yı düşürüyoruz
+    grid_pen = pg.mkPen(color=style_axes.grid_color, width=0.5)
     plot_widget.showGrid(x=True, y=True, alpha=0.2) # Alpha çok düşük olmalı
     
     # Kesişim Çizgileri (0 noktaları yerine senin istediğin offsetli kesişim)
@@ -51,23 +54,14 @@ def set_axis_ticks(plot_item: pg.PlotItem, xlim: Tuple[float, float], ylim: Tupl
 
     x_range = xlim[1] - xlim[0]
     y_range = ylim[1] - ylim[0]
-    
-    # Hata önleyici: Aralık aşırı küçükse (float precision hatası) işlem yapma
-    if x_range < 1e-10 or y_range < 1e-10:
+    if x_range <= 0 or y_range <= 0:
         return
 
-    # target_ticks değerlerini zoom seviyesine göre dinamik bırakabiliriz
     x_step = _nice_step(x_range, target_ticks=7)
     y_step = _nice_step(y_range, target_ticks=6)
 
-    # build_ticks senin fonksiyonun, aynı kalabilir
-    x_ticks = build_ticks(xlim[0], xlim[1], step=x_step, force_end=False) # Zoom'da force_end False daha iyidir
-    y_ticks = build_ticks(ylim[0], ylim[1], step=y_step, force_end=False)
-
-    if x_ticks:
-        bottom_axis.setTicks([x_ticks])
-    if y_ticks:
-        left_axis.setTicks([y_ticks])
+    bottom_axis.setTicks([build_ticks(xlim[0], xlim[1], step=x_step, force_end=True, align_to=0)])
+    left_axis.setTicks([build_ticks(ylim[0], ylim[1], step=y_step, force_end=True, align_to=0)])
 
 def build_ticks(start: float, end: float, step: float, force_end: bool = False, align_to: float = 0) -> List[tuple[float, str]]:
     ticks: List[tuple[float, str]] = []

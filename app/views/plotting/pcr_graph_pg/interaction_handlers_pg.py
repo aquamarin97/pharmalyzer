@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Optional, Set
 
 
-from .hit_test import nearest_well, wells_in_rect, wells_in_rect_centers
+from .hit_test import nearest_well, wells_in_rect
 from .render_scheduler_pg import schedule_render
 from .overlays_pg import update_overlays
 from time import perf_counter
@@ -12,9 +12,8 @@ from time import perf_counter
 def pixel_tol_in_data(renderer) -> tuple[float, float]:
     pixel = renderer._view_box.viewPixelSize()
     if pixel is None:
-        return 0.1, 0.1
-    # 6 piksel yerine 3 piksel (daha hassas ve profesyonel bir seçim alanı)
-    return abs(pixel[0] * 2), abs(pixel[1] * 2)
+        return 0.0, 0.0
+    return abs(pixel[0]), abs(pixel[1])
 
 
 def collect_preview_wells(renderer) -> Set[str]:
@@ -159,11 +158,9 @@ def _apply_drag_update(renderer, start: tuple[float, float], current: tuple[floa
         schedule_render(renderer, full=False, overlay=True)
         return
 
-    wells = wells_in_rect_centers(
-        renderer._well_center_ids,  # noqa
-        renderer._well_centers,  # noqa
-        renderer._well_center_has_fam,  # noqa
-        renderer._well_center_has_hex,  # noqa
+    wells = wells_in_rect(
+        renderer._spatial_index,  # noqa
+        renderer._well_geoms,  # noqa
         x0,
         x1,
         y0,
@@ -171,16 +168,5 @@ def _apply_drag_update(renderer, start: tuple[float, float], current: tuple[floa
         fam_visible=renderer._fam_visible,  # noqa
         hex_visible=renderer._hex_visible,  # noqa
     )
-    if not wells:
-        wells = wells_in_rect(
-            renderer._spatial_index,  # noqa
-            renderer._well_geoms,  # noqa
-            x0,
-            x1,
-            y0,
-            y1,
-            fam_visible=renderer._fam_visible,  # noqa
-            hex_visible=renderer._hex_visible,  # noqa
-        )
     set_rect_preview(renderer, wells)
     schedule_render(renderer, full=False, overlay=True)

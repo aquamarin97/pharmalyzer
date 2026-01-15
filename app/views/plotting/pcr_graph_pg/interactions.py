@@ -26,7 +26,6 @@ class PCRGraphViewBox(pg.ViewBox):
         self._last_pan_pos = None
 
 
-
     def hoverEvent(self, ev):
         if ev.isExit() or self._drag_active or self._pan_active:
             self._renderer.handle_hover(None)

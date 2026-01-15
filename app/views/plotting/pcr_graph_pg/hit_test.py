@@ -137,9 +137,10 @@ def _any_point_in_rect(coords: np.ndarray, x0: float, x1: float, y0: float, y1: 
 
     xs = xs[mask]
     ys = ys[mask]
+    if xs.size == 1:
+        return bool((x0 <= xs[0] <= x1) and (y0 <= ys[0] <= y1))
     if xs.size < 2:
         return False
-
     x_start = xs[:-1]
     y_start = ys[:-1]
     x_end = xs[1:]
