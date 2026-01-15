@@ -51,7 +51,7 @@ def nearest_well(
     well_geoms: Dict[str, Dict[str, np.ndarray]],
     x: float,
     y: float,
-    tol_x: float,
+    tol_x: float,  # Bu genellikle sahne birimidir
     tol_y: float,
     *,
     fam_visible: bool,
@@ -60,22 +60,31 @@ def nearest_well(
     if index is None:
         return None
 
+    # 1. Adayları dar bir toleransla belirle
     candidates = [
-        w for w in index.point_candidates(x, y, tol_x, tol_y) if _well_has_visible_channel(well_geoms, w, fam_visible, hex_visible)
+        w for w in index.point_candidates(x, y, tol_x, tol_y) 
+        if _well_has_visible_channel(well_geoms, w, fam_visible, hex_visible)
     ]
+    
     if not candidates:
         return None
 
     best = None
-    best_dist = float("inf")
-    max_dist = tol_x * tol_x + tol_y * tol_y
+    best_dist_sq = float("inf")
+    
+    # Toleransın karesini alarak mesafe sınırı koyuyoruz
+    max_dist_sq = (tol_x ** 2) + (tol_y ** 2)
+
     for well in candidates:
-        dist = _distance_sq_to_well(well_geoms, well, x, y, fam_visible, hex_visible)
-        if dist < best_dist:
+        dist_sq = _distance_sq_to_well(well_geoms, well, x, y, fam_visible, hex_visible)
+        if dist_sq < best_dist_sq:
+            best_dist_sq = dist_sq
             best = well
-            best_dist = dist
-    if best is None or best_dist > max_dist:
+
+    # Mesafe kontrolü: En yakın olan bile tolerans dışındaysa seçim yok demektir.
+    if best is None or best_dist_sq > max_dist_sq:
         return None
+        
     return best
 
 

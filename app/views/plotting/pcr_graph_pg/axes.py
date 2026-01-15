@@ -31,8 +31,6 @@ def apply_axes_style(
     view_box.setBackgroundColor(style_axes.ax_facecolor)
     
     # --- 2. Grid Yönetimi (Daha Az Baskın) ---
-    # Grid rengini arka plana yaklaştırıp alpha'yı düşürüyoruz
-    grid_pen = pg.mkPen(color=style_axes.grid_color, width=0.5)
     plot_widget.showGrid(x=True, y=True, alpha=0.2) # Alpha çok düşük olmalı
     
     # Kesişim Çizgileri (0 noktaları yerine senin istediğin offsetli kesişim)

@@ -42,10 +42,34 @@ class DragSelection:
         return True
 
     def apply_from_position(self, row: int, col: int) -> Set[str] | None:
-        wells = well_mapping.wells_for_header(row, col)
-        if not wells:
+        if not self.dragging or self.anchor_cell is None:
             return None
-        return self._apply_wells(wells)
+        
+        # 1. Başlangıç ve bitiş koordinatlarını belirle
+        r_start, c_start = self.anchor_cell
+        r_end, c_end = row, col
+        
+        # 2. Dikdörtgenin sınırlarını hesapla (min/max kullanarak ters sürüklemeyi destekle)
+        row_range = range(min(r_start, r_end), max(r_start, r_end) + 1)
+        col_range = range(min(c_start, c_end), max(c_start, c_end) + 1)
+        
+        # 3. Bu alan içindeki tüm kuyucukları topla
+        rect_wells = set()
+        for r in row_range:
+            for c in col_range:
+                wells = well_mapping.wells_for_header(r, c)
+                if wells:
+                    rect_wells |= wells
+
+        # 4. Moduna göre seçimi uygula
+        if self.mode == "add":
+            # Temel seçim + yeni dikdörtgen
+            self.current_selection = self.base_selection | rect_wells
+        else:
+            # Temel seçim - yeni dikdörtgen
+            self.current_selection = self.base_selection - rect_wells
+
+        return set(self.current_selection)
 
     def _apply_wells(self, wells: Set[str]) -> Set[str] | None:
         if not self.dragging or not self.mode:

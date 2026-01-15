@@ -10,10 +10,11 @@ from .overlays_pg import update_overlays
 from time import perf_counter
 
 def pixel_tol_in_data(renderer) -> tuple[float, float]:
-    pixel = renderer._view_box.viewPixelSize()  # noqa
+    pixel = renderer._view_box.viewPixelSize()
     if pixel is None:
         return 0.1, 0.1
-    return abs(pixel[0] * 6), abs(pixel[1] * 6)
+    # 6 piksel yerine 3 piksel (daha hassas ve profesyonel bir seçim alanı)
+    return abs(pixel[0] * 2), abs(pixel[1] * 2)
 
 
 def collect_preview_wells(renderer) -> Set[str]:
@@ -51,31 +52,34 @@ def on_store_preview_changed(renderer, wells: Set[str]) -> None:
 
 def handle_hover(renderer, pos: Optional[tuple[float, float]]) -> None:
     if pos is None:
-        if renderer._store is not None:  # noqa
-            renderer._store.set_hover(None)  # noqa
-        else:
-            renderer.set_hover(None)
+        _clear_hover(renderer)
         return
 
     x, y = pos
     tol_x, tol_y = pixel_tol_in_data(renderer)
+    
     well = nearest_well(
-        renderer._spatial_index,  # noqa
-        renderer._well_geoms,  # noqa
-        x,
-        y,
-        tol_x,
-        tol_y,
-        fam_visible=renderer._fam_visible,  # noqa
-        hex_visible=renderer._hex_visible,  # noqa
+        renderer._spatial_index,
+        renderer._well_geoms,
+        x, y,
+        tol_x, tol_y,
+        fam_visible=renderer._fam_visible,
+        hex_visible=renderer._hex_visible,
     )
 
-    if renderer._store is not None:  # noqa
-        renderer._store.set_hover(well)  # noqa
+    # Eğer well None ise (yani mesafe tol_x/y'den büyükse), hover'ı temizle
+    if renderer._store is not None:
+        if renderer._store.hover_well != well: # Gereksiz güncellemeyi engelle
+            renderer._store.set_hover(well)
     else:
         renderer.set_hover(well)
 
-
+def _clear_hover(renderer):
+    if renderer._store is not None:
+        renderer._store.set_hover(None)
+    else:
+        renderer.set_hover(None)
+        
 def handle_click(renderer, pos: tuple[float, float], *, ctrl_pressed: bool) -> None:
     if renderer._store is None:  # noqa
         return
